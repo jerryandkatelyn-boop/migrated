@@ -231,20 +231,32 @@ export default function DashboardClient() {
 
   // ── Loading State ───────────────────────────────────────────────────────────
 
-  // Redirect to /login if auth is settled and still no user.
-  // Keep the spinner visible during the redirect so there's no black flash.
+  // Track whether we've already kicked off a redirect so we don't re-trigger
+  // the effect on every render of the middleware bounce-loop.
+  const [isRedirecting, setIsRedirecting] = useState(false);
+
+  // Redirect to /login if auth is settled and there's no user.
+  // IMPORTANT: do NOT include !isAuthenticated in the spinner guard below.
+  // Doing so hides the redirect loop: middleware bounces /login → /dashboard
+  // and the user sees an infinite "Loading RECOIL AI..." spinner forever.
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!isLoading && !isAuthenticated && !isRedirecting) {
+      setIsRedirecting(true);
       router.push("/login");
     }
-  }, [isLoading, isAuthenticated, router]);
+  }, [isLoading, isAuthenticated, isRedirecting, router]);
 
-  if (isLoading || !isAuthenticated) {
+  // Only block render while the query is genuinely in-flight.
+  // Once isLoading is false we know the answer: either we have a user
+  // (render the app below) or we don't (the redirect above handles it).
+  if (isLoading || isRedirecting) {
     return (
       <div className="flex items-center justify-center h-screen w-screen bg-background">
         <div className="flex flex-col items-center gap-4">
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-muted-foreground">Loading RECOIL AI...</p>
+          <p className="text-sm text-muted-foreground">
+            {isRedirecting ? "Redirecting..." : "Loading RECOIL AI..."}
+          </p>
         </div>
       </div>
     );

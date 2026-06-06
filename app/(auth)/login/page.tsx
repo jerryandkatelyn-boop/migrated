@@ -42,7 +42,12 @@ export default function LoginPage() {
       return;
     }
 
+    // router.refresh() is required with Next.js App Router + Supabase SSR.
+    // Without it the server-side cache still reflects the unauthenticated state
+    // and the first tRPC call can race ahead before the new session cookies are
+    // picked up, causing auth.me to return null and triggering the redirect loop.
     router.push("/dashboard");
+    router.refresh();
   };
 
   return (
