@@ -23,17 +23,19 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
-    // ── Authenticate ──────────────────────────────────────────────────────────
     const supabase = await createClient();
+
     const {
       data: { user: authUser },
     } = await supabase.auth.getUser();
 
     if (!authUser) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
     }
 
-    // Fetch user profile (for role check)
     const { data: profile } = await supabase
       .from("users")
       .select("*")
@@ -41,10 +43,12 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (!profile) {
-      return NextResponse.json({ error: "User profile not found" }, { status: 401 });
+      return NextResponse.json(
+        { error: "User profile not found" },
+        { status: 401 }
+      );
     }
 
-    // ── Parse Request Body ────────────────────────────────────────────────────
     let body: {
       chatId: string;
       messages: Array<{ role: string; content: string }>;
@@ -56,7 +60,10 @@ export async function POST(req: NextRequest) {
     try {
       body = await req.json();
     } catch {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid JSON body" },
+        { status: 400 }
+      );
     }
 
     if (!body.chatId || !body.messages || body.messages.length === 0) {
@@ -66,13 +73,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Verify Chat Ownership ─────────────────────────────────────────────────
     const chat = await findChatById(body.chatId, authUser.id);
+
     if (!chat) {
-      return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Chat not found" },
+        { status: 404 }
+      );
     }
 
-    // ── Check Usage Limit ─────────────────────────────────────────────────────
     const today = getTodayDateStr();
     const usage = await getTodayUsage(authUser.id, today);
     const messageCount = usage?.message_count ?? 0;
@@ -87,7 +96,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Select AI Provider ────────────────────────────────────────────────────
     const { config, model } = getActiveProvider(
       body.provider,
       body.model || chat.model
@@ -95,12 +103,13 @@ export async function POST(req: NextRequest) {
 
     if (!config.apiKey) {
       return NextResponse.json(
-        { error: `AI provider "${config.name}" is not configured` },
+        {
+          error: `AI provider "${config.name}" is not configured`,
+        },
         { status: 500 }
       );
     }
 
-    // ── Save User Message ─────────────────────────────────────────────────────
     const lastUserMessage = [...body.messages]
       .reverse()
       .find((m) => m.role === "user");
@@ -115,17 +124,20 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // ── Build UI Messages ─────────────────────────────────────────────────────
     const uiMessages = body.messages.map((m) => ({
       id: crypto.randomUUID(),
       role: m.role as "user" | "assistant" | "system",
-      parts: [{ type: "text" as const, text: m.content }],
+      parts: [
+        {
+          type: "text" as const,
+          text: m.content,
+        },
+      ],
     }));
 
     const providerModel = getModelProvider(config, model);
     const startTime = Date.now();
 
-    // ── Stream Response ───────────────────────────────────────────────────────
     const result = streamText({
       model: providerModel,
       system: body.systemPrompt || DEFAULT_ROBLOX_SYSTEM_PROMPT,
@@ -135,13 +147,18 @@ export async function POST(req: NextRequest) {
 
       onFinish: async (completion) => {
         const latencyMs = Date.now() - startTime;
+
         const totalTokens = completion.usage?.totalTokens ?? 0;
-        const inputTokens = completion.usage?.promptTokens ?? 0;
-        const outputTokens = completion.usage?.completionTokens ?? 0;
-        const costUsd = calculateCost(config, inputTokens, outputTokens);
+        const inputTokens = completion.usage?.inputTokens ?? 0;
+        const outputTokens = completion.usage?.outputTokens ?? 0;
+
+        const costUsd = calculateCost(
+          config,
+          inputTokens,
+          outputTokens
+        );
 
         try {
-          // Save AI response
           await createMessage({
             chatId: body.chatId,
             role: "assistant",
@@ -153,7 +170,6 @@ export async function POST(req: NextRequest) {
             provider: config.slug,
           });
 
-          // Track usage
           await incrementUsage(
             authUser.id,
             today,
@@ -163,7 +179,6 @@ export async function POST(req: NextRequest) {
             config.slug
           );
 
-          // Update chat timestamp
           await updateChatTimestamp(body.chatId);
         } catch (err) {
           console.error("[stream] Post-completion error:", err);
@@ -174,8 +189,15 @@ export async function POST(req: NextRequest) {
     return result.toTextStreamResponse();
   } catch (error) {
     console.error("[stream] Unhandled error:", error);
+
     const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+      error instanceof Error
+        ? error.message
+        : "Internal server error";
+
+    return NextResponse.json(
+      { error: message },
+      { status: 500 }
+    );
   }
 }
