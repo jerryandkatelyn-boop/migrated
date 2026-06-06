@@ -7,7 +7,7 @@ import {
   streamText,
   convertToModelMessages,
   type UIMessage,
-  type LanguageModelV1,
+  type LanguageModel,
 } from "ai";
 
 // ─── Provider Configuration ────────────────────────────────────────────────────
@@ -120,7 +120,7 @@ export const DEFAULT_PROVIDERS: ProviderConfig[] = [
 export function getModelProvider(
   config: ProviderConfig,
   model?: string
-): LanguageModelV1 {
+): LanguageModel {
   const selectedModel = model || config.defaultModel;
 
   switch (config.slug) {
@@ -149,7 +149,7 @@ export function getModelProvider(
       return or(selectedModel);
     }
 
-    default:
+    default: {
       // Fallback to OpenRouter
       const fallback = createOpenAICompatible({
         name: "openrouter",
@@ -157,6 +157,7 @@ export function getModelProvider(
         baseURL: "https://openrouter.ai/api/v1",
       });
       return fallback(selectedModel);
+    }
   }
 }
 
@@ -275,6 +276,9 @@ export async function streamChatResponse(
     parts: [{ type: "text" as const, text: m.content }],
   }));
 
+  // convertToModelMessages is async in AI SDK v6 — await it before the retry loop
+  const modelMessages = await convertToModelMessages(uiMessages);
+
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -282,7 +286,7 @@ export async function streamChatResponse(
       const result = streamText({
         model: providerModel,
         system: options.systemPrompt,
-        messages: await convertToModelMessages(uiMessages),
+        messages: modelMessages,
         temperature: options.temperature ?? 0.7,
         maxOutputTokens: options.maxOutputTokens ?? 4096,
       });

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTheme } from "next-themes";
 import {
   Select,
   SelectContent,
@@ -9,7 +10,6 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Moon, Sun, PanelLeftOpen, Bot } from "lucide-react";
-import { useTheme } from "@/components/providers/theme-provider";
 
 interface ChatHeaderProps {
   selectedModel: string;

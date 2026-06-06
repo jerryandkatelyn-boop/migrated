@@ -135,13 +135,16 @@ export async function POST(req: NextRequest) {
       ],
     }));
 
+    // convertToModelMessages is async in AI SDK v6 — await before passing to streamText
+    const modelMessages = await convertToModelMessages(uiMessages);
+
     const providerModel = getModelProvider(config, model);
     const startTime = Date.now();
 
     const result = streamText({
       model: providerModel,
       system: body.systemPrompt || DEFAULT_ROBLOX_SYSTEM_PROMPT,
-      messages: await convertToModelMessages(uiMessages),
+      messages: modelMessages,
       temperature: 0.7,
       maxOutputTokens: 4096,
 
