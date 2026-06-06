@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { trpc } from "@/components/providers/trpc-provider";
 
@@ -14,6 +15,7 @@ import { EmptyState } from "@/components/chat/EmptyState";
 import type { ChatMessage } from "@/types/database";
 
 export default function DashboardClient() {
+  const router = useRouter();
   const { user, isLoading, isAuthenticated } = useAuth();
 
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
@@ -229,7 +231,15 @@ export default function DashboardClient() {
 
   // ── Loading State ───────────────────────────────────────────────────────────
 
-  if (isLoading) {
+  // Redirect to /login if auth is settled and still no user.
+  // Keep the spinner visible during the redirect so there's no black flash.
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.push("/login");
+    }
+  }, [isLoading, isAuthenticated, router]);
+
+  if (isLoading || !isAuthenticated) {
     return (
       <div className="flex items-center justify-center h-screen w-screen bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -239,8 +249,6 @@ export default function DashboardClient() {
       </div>
     );
   }
-
-  if (!isAuthenticated) return null;
 
   // ── Render ──────────────────────────────────────────────────────────────────
 

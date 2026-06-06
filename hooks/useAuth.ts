@@ -15,16 +15,28 @@ export function useAuth() {
     error,
     refetch,
   } = trpc.auth.me.useQuery(undefined, {
-    retry: false,
+    // Retry up to 3 times with a short delay — the first call can fail if the
+    // session cookie hasn't been committed to the browser yet (race condition
+    // immediately after an email-confirmation redirect).
+    retry: 3,
+    retryDelay: 800,
     staleTime: 60_000,
   });
 
-  // Listen for Supabase auth state changes and sync
+  // Listen for Supabase auth state changes and sync with the tRPC query.
+  // INITIAL_SESSION fires when the browser client finds an existing session on
+  // mount (e.g. right after the email-confirmation callback redirect) — without
+  // handling it, the tRPC query can resolve before the session is available and
+  // never re-run, leaving the dashboard blank.
   useEffect(() => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+      if (
+        event === "INITIAL_SESSION" ||
+        event === "SIGNED_IN" ||
+        event === "TOKEN_REFRESHED"
+      ) {
         refetch();
       }
       if (event === "SIGNED_OUT") {
