@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 // Routes that require authentication
 const PROTECTED_ROUTES = ["/", "/admin"];
+
 // Routes only accessible to unauthenticated users
 const AUTH_ROUTES = ["/login", "/signup", "/reset-password"];
 
@@ -19,13 +20,22 @@ export async function middleware(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
+
+        setAll(
+          cookiesToSet: Array<{
+            name: string;
+            value: string;
+            options?: any;
+          }>
+        ) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
+
           supabaseResponse = NextResponse.next({
             request,
           });
+
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           );
@@ -47,7 +57,14 @@ export async function middleware(request: NextRequest) {
   }
 
   // Redirect unauthenticated users away from protected routes
-  if (!user && PROTECTED_ROUTES.some((route) => pathname === route || (route !== "/" && pathname.startsWith(route)))) {
+  if (
+    !user &&
+    PROTECTED_ROUTES.some(
+      (route) =>
+        pathname === route ||
+        (route !== "/" && pathname.startsWith(route))
+    )
+  ) {
     const redirectUrl = new URL("/login", request.url);
     redirectUrl.searchParams.set("redirectTo", pathname);
     return NextResponse.redirect(redirectUrl);
@@ -58,13 +75,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico, sitemap.xml, robots.txt
-     * - Public files (e.g., images)
-     */
     "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
