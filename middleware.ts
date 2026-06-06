@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 // Routes that require authentication
-const PROTECTED_ROUTES = ["/", "/admin"];
+const PROTECTED_ROUTES = ["/dashboard", "/admin"];
 
 // Routes only accessible to unauthenticated users
 const AUTH_ROUTES = ["/login", "/signup", "/reset-password"];
@@ -53,7 +53,7 @@ export async function middleware(request: NextRequest) {
 
   // Redirect authenticated users away from auth pages
   if (user && AUTH_ROUTES.some((route) => pathname.startsWith(route))) {
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   // Redirect unauthenticated users away from protected routes

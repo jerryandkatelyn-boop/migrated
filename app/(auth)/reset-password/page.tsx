@@ -70,7 +70,7 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    router.push("/");
+    router.push("/dashboard");
   };
 
   if (emailSent) {
