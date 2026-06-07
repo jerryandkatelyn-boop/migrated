@@ -147,8 +147,8 @@ export async function POST(req: NextRequest) {
         const latencyMs = Date.now() - startTime;
 
         const totalTokens = completion.usage?.totalTokens ?? 0;
-        const inputTokens = completion.usage?.promptTokens ?? 0;
-        const outputTokens = completion.usage?.completionTokens ?? 0;
+        const inputTokens = completion.usage?.inputTokens ?? 0;
+        const outputTokens = completion.usage?.outputTokens ?? 0;
 
         const costUsd = calculateCost(config, inputTokens, outputTokens);
 
