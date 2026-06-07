@@ -25,22 +25,21 @@ export default function DashboardClient() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
 
-  // Keep a ref so the async stream loop always reads latest messages
-  const messagesRef = useRef<ChatMessage[]>([]);
-  useEffect(() => { messagesRef.current = messages; }, [messages]);
-
   // Branded model selection
   const [selectedBrandedModel, setSelectedBrandedModel] = useState("core");
   const [selectedModel, setSelectedModel] = useState("anthropic/claude-sonnet-4-5");
   const [selectedProvider, setSelectedProvider] = useState("openrouter");
 
+  // Sidebar: open on desktop, closed on mobile by default
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Settings modal
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pendingAutoCreateRef = useRef(false);
 
+  // Detect initial screen size to set sidebar state
   useEffect(() => {
     const isDesktop = window.innerWidth >= 768;
     setSidebarOpen(isDesktop);
@@ -64,12 +63,14 @@ export default function DashboardClient() {
   const { data: brandedModels = [] } = trpc.brandedModels.useQuery();
 
   const createChat = trpc.chat.create.useMutation({ onSuccess: () => refetchChats() });
+
   const deleteChat = trpc.chat.delete.useMutation({
     onSuccess: (_, vars) => {
       refetchChats();
       if (activeChatId === vars.id) { setActiveChatId(null); setMessages([]); }
     },
   });
+
   const updateChat = trpc.chat.update.useMutation({ onSuccess: () => refetchChats() });
 
   // ── Load messages when switching chats ───────────────────────────────
@@ -77,12 +78,10 @@ export default function DashboardClient() {
   useEffect(() => {
     if (pendingAutoCreateRef.current) return;
     if (chatMessages && activeChatId) {
-      const loaded = chatMessages.map((m) => ({
+      setMessages(chatMessages.map((m) => ({
         role: m.role as "user" | "assistant" | "system",
         content: m.content,
-      }));
-      setMessages(loaded);
-      messagesRef.current = loaded;
+      })));
     }
   }, [chatMessages, activeChatId]);
 
@@ -103,7 +102,6 @@ export default function DashboardClient() {
   const handleNewChat = useCallback(() => {
     setActiveChatId(null);
     setMessages([]);
-    messagesRef.current = [];
     if (window.innerWidth < 768) setSidebarOpen(false);
   }, []);
 
@@ -124,33 +122,26 @@ export default function DashboardClient() {
     if (isStreaming) return;
     if (usageData?.hasReachedLimit) return;
 
-    // ── Auto-create chat if none active ──────────────────────────────
     let chatId = activeChatId;
     if (!chatId) {
       try {
         const title = content.split("\n")[0].slice(0, 60).trim() || "New Chat";
         const chat = await createChat.mutateAsync({ title, model: selectedModel });
-        if (!chat) {
-          pushError("Failed to create conversation. Please try again.");
-          return;
-        }
+        if (!chat) return;
         chatId = chat.id;
         pendingAutoCreateRef.current = true;
         setActiveChatId(chatId);
-      } catch (err) {
-        pushError(`Could not start chat: ${err instanceof Error ? err.message : "Unknown error"}`);
+      } catch {
         return;
       }
     }
 
-    // ── Optimistically add the user message ──────────────────────────
     const userMsg: ChatMessage = { role: "user", content };
-    const snapshot = [...messagesRef.current, userMsg];
-    setMessages(snapshot);
-    messagesRef.current = snapshot;
+    setMessages((prev) => [...prev, userMsg]);
     setIsStreaming(true);
 
     try {
+      const allMessages: ChatMessage[] = [...messages, userMsg];
       abortControllerRef.current = new AbortController();
 
       const response = await fetch("/api/stream/chat", {
@@ -159,105 +150,73 @@ export default function DashboardClient() {
         signal: abortControllerRef.current.signal,
         body: JSON.stringify({
           chatId,
-          // Send the full history including the new user message
-          messages: snapshot,
+          messages: allMessages,
           model: selectedModel,
           provider: selectedProvider,
         }),
       });
 
       if (!response.ok) {
-        let errMsg = "Failed to get response from AI";
-        try {
-          const errBody = await response.json();
-          if (errBody?.error) errMsg = errBody.error;
-        } catch { /* ignore */ }
-        pushError(errMsg);
+        const error = await response.json();
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: `**Error:** ${error.error || "Failed to get response"}` },
+        ]);
         setIsStreaming(false);
         refetchUsage();
         return;
       }
 
-      if (!response.body) {
-        pushError("No response body received.");
-        setIsStreaming(false);
-        return;
-      }
+      if (!response.body) { setIsStreaming(false); return; }
 
-      // ── Stream the response ──────────────────────────────────────
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let assistantContent = "";
 
-      // Add a blank assistant message placeholder
-      const withPlaceholder: ChatMessage[] = [...messagesRef.current, { role: "assistant", content: "" }];
-      setMessages(withPlaceholder);
-      messagesRef.current = withPlaceholder;
+      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
         const chunk = decoder.decode(value, { stream: true });
-
-        // The AI SDK data stream format:
-        //   0:"text chunk"   ← text delta
-        //   e:{...}          ← step finish
-        //   d:{...}          ← stream finish
-        for (const line of chunk.split("\n")) {
-          const trimmed = line.trim();
-          if (!trimmed) continue;
-
-          if (trimmed.startsWith("0:")) {
+        const lines = chunk.split("\n").filter((l) => l.trim());
+        for (const line of lines) {
+          if (line.startsWith("0:")) {
             try {
-              const text = JSON.parse(trimmed.slice(2)) as string;
+              const text = JSON.parse(line.slice(2));
               assistantContent += text;
-
-              // Create a NEW object for the last message (avoid mutation)
               setMessages((prev) => {
-                const next = [...prev];
-                next[next.length - 1] = { role: "assistant", content: assistantContent };
-                return next;
+                const updated = [...prev];
+                const last = updated[updated.length - 1];
+                if (last && last.role === "assistant") last.content = assistantContent;
+                return updated;
               });
-            } catch { /* skip malformed line */ }
+            } catch { /* skip */ }
           }
-          // Lines starting with "e:" or "d:" are finish events — nothing to render
         }
       }
-
-      // Update the ref to final state
-      messagesRef.current = messagesRef.current.map((m, i, arr) =>
-        i === arr.length - 1 && m.role === "assistant"
-          ? { ...m, content: assistantContent }
-          : m
-      );
 
       refetchUsage();
       refetchChats();
     } catch (error) {
       if ((error as Error).name !== "AbortError") {
-        pushError("Connection lost. Please try again.");
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: "**Error:** Failed to connect to AI service. Please try again." },
+        ]);
       }
     } finally {
       setIsStreaming(false);
       abortControllerRef.current = null;
       pendingAutoCreateRef.current = false;
     }
-  }, [activeChatId, isStreaming, selectedModel, selectedProvider, usageData, refetchUsage, refetchChats, createChat]);
+  }, [activeChatId, isStreaming, messages, selectedModel, selectedProvider, usageData, refetchUsage, refetchChats, createChat]);
 
   const handleStopStreaming = useCallback(() => {
     abortControllerRef.current?.abort();
     setIsStreaming(false);
     pendingAutoCreateRef.current = false;
   }, []);
-
-  // ── Helper: push an error message into the chat ──────────────────────
-
-  function pushError(msg: string) {
-    const errMsg: ChatMessage = { role: "assistant", content: `⚠️ **Error:** ${msg}` };
-    setMessages((prev) => [...prev, errMsg]);
-    messagesRef.current = [...messagesRef.current, errMsg];
-  }
 
   // ── Auth redirect ────────────────────────────────────────────────────
 
@@ -301,7 +260,7 @@ export default function DashboardClient() {
 
   return (
     <div className="flex h-screen h-dvh w-screen bg-background overflow-hidden relative">
-      {/* Mobile sidebar overlay */}
+      {/* Mobile sidebar overlay backdrop */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-30 md:hidden"
@@ -329,8 +288,9 @@ export default function DashboardClient() {
         />
       </div>
 
-      {/* Main — full-height flex column */}
+      {/* Main content — full height flex column */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden w-full">
+        {/* Header */}
         <ChatHeader
           selectedBrandedModel={selectedBrandedModel}
           onBrandedModelChange={handleBrandedModelChange}
@@ -340,6 +300,7 @@ export default function DashboardClient() {
           onOpenSettings={() => setSettingsOpen(true)}
         />
 
+        {/* Usage bar */}
         {usageData && (
           <UsageBar
             used={usageData.used}
@@ -349,10 +310,12 @@ export default function DashboardClient() {
           />
         )}
 
-        {/* Chat area fills all remaining space */}
+        {/* ── Chat area — fills all remaining space ── */}
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          {/* Message scroll area */}
           <div className="flex-1 overflow-y-auto overscroll-contain">
             {messages.length === 0 && !isStreaming ? (
+              /* Empty state sits inside the scroll area so it's vertically centered */
               <div className="flex h-full min-h-[60vh] items-center justify-center">
                 <EmptyState />
               </div>
@@ -365,6 +328,7 @@ export default function DashboardClient() {
             )}
           </div>
 
+          {/* Chat input — pinned to bottom */}
           <ChatInput
             onSend={handleSendMessage}
             isStreaming={isStreaming}
@@ -379,6 +343,7 @@ export default function DashboardClient() {
         </div>
       </div>
 
+      {/* Settings modal */}
       <SettingsModal
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}

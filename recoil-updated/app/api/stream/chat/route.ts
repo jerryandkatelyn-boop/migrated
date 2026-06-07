@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { streamText } from "ai";
+import { streamText, convertToModelMessages } from "ai";
 import { createClient } from "@/lib/supabase/server";
 import {
   getActiveProvider,
@@ -104,13 +104,12 @@ export async function POST(req: NextRequest) {
     if (!config.apiKey) {
       return NextResponse.json(
         {
-          error: `AI provider "${config.name}" is not configured. Please set the API key in your environment variables.`,
+          error: `AI provider "${config.name}" is not configured`,
         },
         { status: 500 }
       );
     }
 
-    // Save the user message to DB
     const lastUserMessage = [...body.messages]
       .reverse()
       .find((m) => m.role === "user");
@@ -125,13 +124,19 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Build CoreMessages directly — no convertToModelMessages needed
-    const coreMessages = body.messages
-      .filter((m) => m.role === "user" || m.role === "assistant")
-      .map((m) => ({
-        role: m.role as "user" | "assistant",
-        content: m.content,
-      }));
+    const uiMessages = body.messages.map((m) => ({
+      id: crypto.randomUUID(),
+      role: m.role as "user" | "assistant" | "system",
+      parts: [
+        {
+          type: "text" as const,
+          text: m.content,
+        },
+      ],
+    }));
+
+    // convertToModelMessages is async in AI SDK v6 — await before passing to streamText
+    const modelMessages = await convertToModelMessages(uiMessages);
 
     const providerModel = getModelProvider(config, model);
     const startTime = Date.now();
@@ -139,18 +144,22 @@ export async function POST(req: NextRequest) {
     const result = streamText({
       model: providerModel,
       system: body.systemPrompt || DEFAULT_ROBLOX_SYSTEM_PROMPT,
-      messages: coreMessages,
+      messages: modelMessages,
       temperature: 0.7,
-      maxTokens: 4096,
+      maxOutputTokens: 4096,
 
       onFinish: async (completion) => {
         const latencyMs = Date.now() - startTime;
 
         const totalTokens = completion.usage?.totalTokens ?? 0;
-        const inputTokens = completion.usage?.promptTokens ?? 0;
-        const outputTokens = completion.usage?.completionTokens ?? 0;
+        const inputTokens = completion.usage?.inputTokens ?? 0;
+        const outputTokens = completion.usage?.outputTokens ?? 0;
 
-        const costUsd = calculateCost(config, inputTokens, outputTokens);
+        const costUsd = calculateCost(
+          config,
+          inputTokens,
+          outputTokens
+        );
 
         try {
           await createMessage({
@@ -180,8 +189,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // toDataStreamResponse() produces the "0:..." format the client expects
-    return result.toDataStreamResponse();
+    return result.toTextStreamResponse();
   } catch (error) {
     console.error("[stream] Unhandled error:", error);
 
