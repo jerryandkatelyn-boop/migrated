@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
       system: body.systemPrompt || DEFAULT_ROBLOX_SYSTEM_PROMPT,
       messages: coreMessages,
       temperature: 0.7,
-      maxTokens: 4096,
+      maxOutputTokens: 4096,
 
       onFinish: async (completion) => {
         const latencyMs = Date.now() - startTime;
