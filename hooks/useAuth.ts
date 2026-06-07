@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { trpc } from "@/components/providers/trpc-provider";
@@ -9,29 +9,36 @@ export function useAuth() {
   const router = useRouter();
   const supabase = createClient();
 
+  // Track client-side Supabase session independently of the tRPC profile query.
+  // null  = not yet checked (still loading)
+  // true  = session confirmed
+  // false = definitely no session
+  const [hasSession, setHasSession] = useState<boolean | null>(null);
+
   const {
     data: user,
-    isLoading,
+    isLoading: trpcLoading,
     error,
     refetch,
   } = trpc.auth.me.useQuery(undefined, {
-    // Retry up to 3 times with a short delay — the first call can fail if the
-    // session cookie hasn't been committed to the browser yet (race condition
-    // immediately after an email-confirmation redirect).
     retry: 3,
     retryDelay: 800,
     staleTime: 60_000,
   });
 
-  // Listen for Supabase auth state changes and sync with the tRPC query.
-  // INITIAL_SESSION fires when the browser client finds an existing session on
-  // mount (e.g. right after the email-confirmation callback redirect) — without
-  // handling it, the tRPC query can resolve before the session is available and
-  // never re-run, leaving the dashboard blank.
   useEffect(() => {
+    // Resolve the initial session immediately so we can unblock the loading
+    // state without waiting for the tRPC round-trip.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setHasSession(!!session);
+    });
+
+    // Keep the session flag in sync with auth state changes.
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      setHasSession(!!session);
+
       if (
         event === "INITIAL_SESSION" ||
         event === "SIGNED_IN" ||
@@ -54,10 +61,21 @@ export function useAuth() {
     router.refresh();
   }, [supabase, router]);
 
+  // Stay in loading state until both the Supabase session check and the
+  // tRPC query have resolved. This prevents a flicker where hasSession is
+  // already true but the user object hasn't arrived yet.
+  const isLoading = hasSession === null || trpcLoading;
+
+  // A user is authenticated when EITHER the tRPC profile exists OR the
+  // client-side Supabase session is confirmed. This prevents the redirect
+  // loop where auth.me returns null due to a profile lookup failure even
+  // though the Supabase session is still valid.
+  const isAuthenticated = !!user || hasSession === true;
+
   return {
     user: user ?? null,
     isLoading,
-    isAuthenticated: !!user,
+    isAuthenticated,
     isAdmin: user?.role === "admin",
     error: error ?? null,
     logout,

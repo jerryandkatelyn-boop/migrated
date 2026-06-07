@@ -61,6 +61,31 @@ export async function createContext(
 
       if (profile) {
         ctx.user = profile as User;
+      } else {
+        // Profile row couldn't be fetched or created (RLS, trigger timing, etc.).
+        // Rather than returning null — which causes an infinite redirect loop
+        // because the middleware still sees a valid Supabase auth session and
+        // bounces /login back to /dashboard — synthesise a minimal user object
+        // from the auth token. The dashboard will work; the next sign-in or
+        // profile-update will persist the real row.
+        const now = new Date().toISOString();
+        ctx.user = {
+          id: authUser.id,
+          email: authUser.email ?? "",
+          name:
+            authUser.user_metadata?.full_name ??
+            authUser.email?.split("@")[0] ??
+            null,
+          avatar: authUser.user_metadata?.avatar_url ?? null,
+          role: "user" as const,
+          roblox_username: null,
+          roblox_user_id: null,
+          experience_level: null,
+          preferred_topics: null,
+          created_at: now,
+          updated_at: now,
+          last_sign_in_at: now,
+        };
       }
     }
   } catch {

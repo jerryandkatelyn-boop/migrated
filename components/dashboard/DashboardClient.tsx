@@ -231,32 +231,25 @@ export default function DashboardClient() {
 
   // ── Loading State ───────────────────────────────────────────────────────────
 
-  // Track whether we've already kicked off a redirect so we don't re-trigger
-  // the effect on every render of the middleware bounce-loop.
-  const [isRedirecting, setIsRedirecting] = useState(false);
-
-  // Redirect to /login if auth is settled and there's no user.
-  // IMPORTANT: do NOT include !isAuthenticated in the spinner guard below.
-  // Doing so hides the redirect loop: middleware bounces /login → /dashboard
-  // and the user sees an infinite "Loading RECOIL AI..." spinner forever.
+  // Redirect to /login when auth has fully resolved and there is no session.
+  // useAuth now derives isAuthenticated from the client-side Supabase session
+  // as well as the tRPC profile, so this only fires when the user is genuinely
+  // signed out — not when auth.me returned null due to a profile lookup hiccup.
   useEffect(() => {
-    if (!isLoading && !isAuthenticated && !isRedirecting) {
-      setIsRedirecting(true);
+    if (!isLoading && !isAuthenticated) {
       router.push("/login");
+      router.refresh();
     }
-  }, [isLoading, isAuthenticated, isRedirecting, router]);
+  }, [isLoading, isAuthenticated, router]);
 
-  // Only block render while the query is genuinely in-flight.
-  // Once isLoading is false we know the answer: either we have a user
-  // (render the app below) or we don't (the redirect above handles it).
-  if (isLoading || isRedirecting) {
+  // Only block render while loading. Once isLoading is false we either have
+  // a confirmed session (render the dashboard) or we don't (redirect above).
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen w-screen bg-background">
         <div className="flex flex-col items-center gap-4">
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-muted-foreground">
-            {isRedirecting ? "Redirecting..." : "Loading RECOIL AI..."}
-          </p>
+          <p className="text-sm text-muted-foreground">Loading RECOIL AI...</p>
         </div>
       </div>
     );
