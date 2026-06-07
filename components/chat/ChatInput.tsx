@@ -17,6 +17,7 @@ export function ChatInput({ onSend, isStreaming, onStop, disabled, placeholder }
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Auto-resize textarea
   useEffect(() => {
     const textarea = textareaRef.current;
     if (textarea) {
@@ -24,6 +25,13 @@ export function ChatInput({ onSend, isStreaming, onStop, disabled, placeholder }
       textarea.style.height = `${Math.min(textarea.scrollHeight, 180)}px`;
     }
   }, [input]);
+
+  // Focus textarea on mount so users can type immediately
+  useEffect(() => {
+    if (!disabled) {
+      textareaRef.current?.focus();
+    }
+  }, [disabled]);
 
   const handleSubmit = () => {
     const trimmed = input.trim();
@@ -34,8 +42,6 @@ export function ChatInput({ onSend, isStreaming, onStop, disabled, placeholder }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    // On mobile (no physical keyboard), Enter should just add a newline
-    // On desktop, Enter submits; Shift+Enter adds newline
     if (e.key === "Enter" && !e.shiftKey && window.innerWidth >= 640) {
       e.preventDefault();
       handleSubmit();
@@ -53,7 +59,7 @@ export function ChatInput({ onSend, isStreaming, onStop, disabled, placeholder }
           className={cn(
             "relative flex items-end gap-2 rounded-2xl border bg-card/60 p-2.5 sm:p-3 transition-all duration-200",
             disabled
-              ? "border-border/30 opacity-50"
+              ? "border-border/30 opacity-60"
               : isStreaming
               ? "border-primary/30 shadow-glow-orange"
               : hasInput
@@ -61,22 +67,17 @@ export function ChatInput({ onSend, isStreaming, onStop, disabled, placeholder }
               : "border-border/50 focus-within:border-primary/40 focus-within:shadow-glow-orange"
           )}
         >
-          {/* Textarea */}
           <Textarea
             ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={
-              placeholder ||
-              "Ask RECOIL AI about Roblox development…"
-            }
+            placeholder={placeholder ?? "Ask RECOIL AI about Roblox development…"}
             disabled={disabled || isStreaming}
             rows={1}
             className="flex-1 min-h-[40px] max-h-[180px] resize-none border-0 bg-transparent px-1 py-1.5 text-sm focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/40 leading-relaxed"
           />
 
-          {/* Action button */}
           <div className="flex items-center gap-1.5 shrink-0 self-end pb-0.5">
             {isStreaming ? (
               <button
@@ -102,7 +103,7 @@ export function ChatInput({ onSend, isStreaming, onStop, disabled, placeholder }
           </div>
         </div>
 
-        {/* Footer hint — hidden on very small screens */}
+        {/* Footer hint */}
         <div className="hidden sm:flex items-center justify-center gap-2 mt-2">
           <Zap className="h-3 w-3 text-primary/40" />
           <p className="text-[11px] text-muted-foreground/40 text-center">

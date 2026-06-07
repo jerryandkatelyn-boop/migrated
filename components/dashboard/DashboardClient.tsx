@@ -37,6 +37,9 @@ export default function DashboardClient() {
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  // Tracks whether we're in the middle of an auto-created chat
+  // to prevent chatMessages effect from overriding optimistic state
+  const pendingAutoCreateRef = useRef(false);
 
   // Detect initial screen size to set sidebar state
   useEffect(() => {
@@ -72,9 +75,11 @@ export default function DashboardClient() {
 
   const updateChat = trpc.chat.update.useMutation({ onSuccess: () => refetchChats() });
 
-  // ── Load messages ────────────────────────────────────────────────────
+  // ── Load messages when switching chats ───────────────────────────────
 
   useEffect(() => {
+    // Skip overriding messages during auto-create streaming
+    if (pendingAutoCreateRef.current) return;
     if (chatMessages && activeChatId) {
       setMessages(chatMessages.map((m) => ({
         role: m.role as "user" | "assistant" | "system",
@@ -97,15 +102,12 @@ export default function DashboardClient() {
     setSelectedModel(model);
   }, []);
 
-  const handleNewChat = useCallback(async () => {
-    const chat = await createChat.mutateAsync({ title: "New Chat", model: selectedModel });
-    if (chat) {
-      setActiveChatId(chat.id);
-      setMessages([]);
-      // On mobile, close sidebar after selecting chat
-      if (window.innerWidth < 768) setSidebarOpen(false);
-    }
-  }, [createChat, selectedModel]);
+  const handleNewChat = useCallback(() => {
+    setActiveChatId(null);
+    setMessages([]);
+    // On mobile, close sidebar after selecting
+    if (window.innerWidth < 768) setSidebarOpen(false);
+  }, []);
 
   const handleSelectChat = useCallback((chatId: string) => {
     setActiveChatId(chatId);
@@ -122,8 +124,25 @@ export default function DashboardClient() {
   }, [updateChat]);
 
   const handleSendMessage = useCallback(async (content: string) => {
-    if (!activeChatId || isStreaming) return;
+    if (isStreaming) return;
     if (usageData?.hasReachedLimit) return;
+
+    // ── Auto-create a chat if none is selected (ChatGPT-style) ──────
+    let chatId = activeChatId;
+    if (!chatId) {
+      try {
+        const title = content.split("\n")[0].slice(0, 60).trim() || "New Chat";
+        const chat = await createChat.mutateAsync({ title, model: selectedModel });
+        if (!chat) return;
+        chatId = chat.id;
+        // Flag that we're auto-creating so the chatMessages effect
+        // doesn't overwrite our optimistic messages during streaming
+        pendingAutoCreateRef.current = true;
+        setActiveChatId(chatId);
+      } catch {
+        return;
+      }
+    }
 
     const userMsg: ChatMessage = { role: "user", content };
     setMessages((prev) => [...prev, userMsg]);
@@ -138,7 +157,7 @@ export default function DashboardClient() {
         headers: { "Content-Type": "application/json" },
         signal: abortControllerRef.current.signal,
         body: JSON.stringify({
-          chatId: activeChatId,
+          chatId,
           messages: allMessages,
           model: selectedModel,
           provider: selectedProvider,
@@ -197,12 +216,15 @@ export default function DashboardClient() {
     } finally {
       setIsStreaming(false);
       abortControllerRef.current = null;
+      // Allow chatMessages effect to sync again after streaming completes
+      pendingAutoCreateRef.current = false;
     }
-  }, [activeChatId, isStreaming, messages, selectedModel, selectedProvider, usageData, refetchUsage, refetchChats]);
+  }, [activeChatId, isStreaming, messages, selectedModel, selectedProvider, usageData, refetchUsage, refetchChats, createChat]);
 
   const handleStopStreaming = useCallback(() => {
     abortControllerRef.current?.abort();
     setIsStreaming(false);
+    pendingAutoCreateRef.current = false;
   }, []);
 
   // ── Auth redirect ────────────────────────────────────────────────────
@@ -286,6 +308,7 @@ export default function DashboardClient() {
           onOpenSettings={() => setSettingsOpen(true)}
         />
 
+        {/* Usage bar with upgrade nudge */}
         {usageData && (
           <UsageBar
             used={usageData.used}
@@ -307,16 +330,15 @@ export default function DashboardClient() {
           )}
         </div>
 
+        {/* Chat input — always enabled (auto-creates chat on first message) */}
         <ChatInput
           onSend={handleSendMessage}
           isStreaming={isStreaming}
           onStop={handleStopStreaming}
-          disabled={!activeChatId || usageData?.hasReachedLimit}
+          disabled={usageData?.hasReachedLimit === true}
           placeholder={
-            !activeChatId
-              ? "Select or create a conversation to begin…"
-              : usageData?.hasReachedLimit
-              ? "Daily limit reached · Come back tomorrow"
+            usageData?.hasReachedLimit
+              ? "Daily limit reached · Upgrade to Pro for unlimited messages"
               : undefined
           }
         />

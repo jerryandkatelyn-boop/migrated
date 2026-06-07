@@ -1,6 +1,6 @@
 "use client";
 
-import { Code, Bug, BookOpen, Rocket, Zap, Terminal, Sparkles } from "lucide-react";
+import { Code, Bug, BookOpen, Rocket, Zap, Terminal, Sparkles, Star, ArrowRight, Check } from "lucide-react";
 
 interface EmptyStateProps {
   onSuggestionClick: (text: string) => void;
@@ -51,13 +51,13 @@ const suggestions = [
 
 export function EmptyState({ onSuggestionClick }: EmptyStateProps) {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center px-3 sm:px-4 py-8 sm:py-16 min-h-full">
-      {/* Logo area — more compact on mobile */}
-      <div className="text-center mb-6 sm:mb-10">
-        <div className="relative w-14 h-14 sm:w-20 sm:h-20 mx-auto mb-3 sm:mb-5">
-          <div className="absolute inset-0 rounded-2xl sm:rounded-3xl bg-primary/20 blur-xl animate-glow-pulse" />
-          <div className="relative w-14 h-14 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl bg-card border border-primary/30 flex items-center justify-center shadow-card-dark">
-            <Zap className="h-7 w-7 sm:h-10 sm:w-10 text-primary" strokeWidth={1.5} />
+    <div className="flex-1 flex flex-col items-center justify-center px-3 sm:px-4 py-6 sm:py-12 min-h-full">
+      {/* Logo area */}
+      <div className="text-center mb-6 sm:mb-8">
+        <div className="relative w-14 h-14 sm:w-18 sm:h-18 mx-auto mb-3 sm:mb-4">
+          <div className="absolute inset-0 rounded-2xl bg-primary/20 blur-xl animate-glow-pulse" />
+          <div className="relative w-14 h-14 sm:w-18 sm:h-18 rounded-2xl bg-card border border-primary/30 flex items-center justify-center shadow-card-dark">
+            <Zap className="h-7 w-7 text-primary" strokeWidth={1.5} />
           </div>
         </div>
         <h2 className="font-display text-2xl sm:text-3xl font-bold text-gradient-white mb-1">
@@ -68,8 +68,8 @@ export function EmptyState({ onSuggestionClick }: EmptyStateProps) {
         </p>
       </div>
 
-      {/* Suggestions grid — 1 col on mobile, 2 col on sm+ */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 w-full max-w-2xl mb-6 sm:mb-10">
+      {/* Suggestions grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 w-full max-w-2xl mb-5 sm:mb-7">
         {suggestions.map((s, i) => (
           <button
             key={i}
@@ -91,7 +91,55 @@ export function EmptyState({ onSuggestionClick }: EmptyStateProps) {
         ))}
       </div>
 
-      {/* Capabilities — condensed on mobile */}
+      {/* ── Pro Upgrade Banner ──────────────────────────────────────── */}
+      <div className="w-full max-w-2xl mb-5 sm:mb-7">
+        <div className="relative overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/10 via-card to-violet-500/10 p-4 sm:p-5">
+          {/* Decorative glow */}
+          <div className="absolute -top-8 -right-8 w-32 h-32 bg-primary/15 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute -bottom-8 -left-8 w-24 h-24 bg-violet-500/10 rounded-full blur-2xl pointer-events-none" />
+
+          <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            {/* Icon */}
+            <div className="w-10 h-10 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center shrink-0">
+              <Star className="h-5 w-5 text-primary" />
+            </div>
+
+            {/* Copy */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <span className="font-display text-sm font-bold text-foreground">
+                  Upgrade to Pro
+                </span>
+                <span className="text-[9px] px-2 py-0.5 rounded-full border border-primary/30 bg-primary/10 text-primary font-display font-semibold uppercase tracking-wider">
+                  Coming Soon
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1">
+                {["Unlimited messages", "Priority AI access", "Advanced code review"].map((item) => (
+                  <span key={item} className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <Check className="h-3 w-3 text-primary/70 shrink-0" />
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Price */}
+            <div className="flex items-center gap-2 sm:flex-col sm:items-end sm:gap-0 shrink-0">
+              <div className="flex items-baseline gap-0.5">
+                <span className="font-display text-2xl font-bold text-primary">$9</span>
+                <span className="text-xs text-muted-foreground">/mo</span>
+              </div>
+              <div className="flex items-center gap-1 sm:mt-1 text-[10px] text-primary/70 font-medium">
+                <span>Get notified</span>
+                <ArrowRight className="h-3 w-3" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Capability pills */}
       <div className="flex flex-wrap justify-center gap-1.5 sm:gap-2">
         {[
           { icon: Zap,      label: "Code Generation" },

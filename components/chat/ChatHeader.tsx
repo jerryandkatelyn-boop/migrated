@@ -1,8 +1,7 @@
 "use client";
 
-import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
-import { Moon, Sun, PanelLeftOpen, Zap, Settings, ChevronDown } from "lucide-react";
+import { PanelLeftOpen, Zap, Settings, ChevronDown } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,7 +43,6 @@ export function ChatHeader({
   onToggleSidebar,
   onOpenSettings,
 }: ChatHeaderProps) {
-  const { theme, setTheme } = useTheme();
   const current = brandedModels.find((m) => m.id === selectedBrandedModel) ?? brandedModels[0];
   const meta = current ? tierMeta[current.tier] : tierMeta.balanced;
 
@@ -114,7 +112,6 @@ export function ChatHeader({
                     isSelected && "bg-accent"
                   )}
                 >
-                  {/* Icon dot */}
                   <div className={cn("w-2 h-2 rounded-full mt-1.5 shrink-0", mMeta.dot, isSelected && mMeta.glow)} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -144,7 +141,6 @@ export function ChatHeader({
 
       {/* Right */}
       <div className="flex items-center gap-1 sm:gap-2">
-        {/* Settings */}
         {onOpenSettings && (
           <button
             onClick={onOpenSettings}
@@ -154,15 +150,6 @@ export function ChatHeader({
             <Settings className="h-4 w-4" />
           </button>
         )}
-
-        {/* Theme toggle */}
-        <button
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-          aria-label="Toggle theme"
-        >
-          {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-        </button>
       </div>
     </header>
   );
