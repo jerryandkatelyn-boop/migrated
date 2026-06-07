@@ -180,8 +180,8 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // toDataStreamResponse() produces the "0:..." format the client expects
-    return result.toDataStreamResponse();
+    // toTextStreamResponse() streams raw text chunks — client reads them directly
+    return result.toTextStreamResponse();
   } catch (error) {
     console.error("[stream] Unhandled error:", error);
 

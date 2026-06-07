@@ -198,31 +198,16 @@ export default function DashboardClient() {
         const { done, value } = await reader.read();
         if (done) break;
 
+        // toTextStreamResponse() sends raw text — just append each chunk directly
         const chunk = decoder.decode(value, { stream: true });
+        assistantContent += chunk;
 
-        // The AI SDK data stream format:
-        //   0:"text chunk"   ← text delta
-        //   e:{...}          ← step finish
-        //   d:{...}          ← stream finish
-        for (const line of chunk.split("\n")) {
-          const trimmed = line.trim();
-          if (!trimmed) continue;
-
-          if (trimmed.startsWith("0:")) {
-            try {
-              const text = JSON.parse(trimmed.slice(2)) as string;
-              assistantContent += text;
-
-              // Create a NEW object for the last message (avoid mutation)
-              setMessages((prev) => {
-                const next = [...prev];
-                next[next.length - 1] = { role: "assistant", content: assistantContent };
-                return next;
-              });
-            } catch { /* skip malformed line */ }
-          }
-          // Lines starting with "e:" or "d:" are finish events — nothing to render
-        }
+        // Create a NEW object for the last message (never mutate in place)
+        setMessages((prev) => {
+          const next = [...prev];
+          next[next.length - 1] = { role: "assistant", content: assistantContent };
+          return next;
+        });
       }
 
       // Update the ref to final state

@@ -5,8 +5,6 @@ import { deepseek } from "@ai-sdk/deepseek";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import {
   streamText,
-  convertToModelMessages,
-  type UIMessage,
   type LanguageModel,
 } from "ai";
 
@@ -325,14 +323,13 @@ export async function streamChatResponse(
 
   const providerModel = getModelProvider(config, model);
 
-  const uiMessages: UIMessage[] = options.messages.map((m) => ({
-    id: crypto.randomUUID(),
-    role: m.role,
-    parts: [{ type: "text" as const, text: m.content }],
-  }));
-
-  // convertToModelMessages is async in AI SDK v6 — await it before the retry loop
-  const modelMessages = await convertToModelMessages(uiMessages);
+  // Build CoreMessages directly — no convertToModelMessages needed
+  const modelMessages = options.messages
+    .filter((m) => m.role === "user" || m.role === "assistant")
+    .map((m) => ({
+      role: m.role as "user" | "assistant",
+      content: m.content,
+    }));
 
   let lastError: Error | null = null;
 
