@@ -11,6 +11,7 @@ import {
 import {
   Plus, MessageSquare, Trash2, Edit3, Check, X,
   PanelLeftClose, LogOut, Settings, Shield, Zap,
+  Star, ArrowRight,
 } from "lucide-react";
 import type { User, Chat } from "@/types/database";
 import { useAuth } from "@/hooks/useAuth";
@@ -144,7 +145,6 @@ export function Sidebar({
                         : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground border border-transparent"
                     )}
                   >
-                    {/* Active indicator */}
                     {activeChatId === chat.id && (
                       <div className="w-1 h-1 rounded-full bg-primary shrink-0" />
                     )}
@@ -154,7 +154,6 @@ export function Sidebar({
                     )} />
                     <span className="flex-1 text-left truncate">{chat.title}</span>
 
-                    {/* Action buttons */}
                     <div
                       className={cn(
                         "flex items-center gap-0.5 transition-opacity",
@@ -202,6 +201,52 @@ export function Sidebar({
             )}
           </div>
         </ScrollArea>
+
+        {/* ── Pro Upgrade Card ─────────────────────────────────────────── */}
+        <div className="px-3 py-3 shrink-0">
+          <div className="relative overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-br from-primary/10 via-card to-violet-500/10 p-3.5">
+            {/* Decorative glows */}
+            <div className="absolute -top-6 -right-6 w-20 h-20 bg-primary/15 rounded-full blur-xl pointer-events-none" />
+            <div className="absolute -bottom-6 -left-6 w-16 h-16 bg-violet-500/10 rounded-full blur-xl pointer-events-none" />
+
+            <div className="relative flex items-start gap-3">
+              {/* Icon */}
+              <div className="w-8 h-8 rounded-lg bg-primary/15 border border-primary/30 flex items-center justify-center shrink-0 mt-0.5">
+                <Star className="h-4 w-4 text-primary" />
+              </div>
+
+              {/* Copy */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                  <span className="font-display text-xs font-bold text-foreground">
+                    Upgrade to Pro
+                  </span>
+                  <span className="text-[8px] px-1.5 py-0.5 rounded-full border border-primary/30 bg-primary/10 text-primary font-display font-semibold uppercase tracking-wider">
+                    Soon
+                  </span>
+                </div>
+                <div className="space-y-0.5 mb-2">
+                  {["Unlimited messages", "Priority AI access", "Advanced code review"].map((item) => (
+                    <div key={item} className="flex items-center gap-1.5">
+                      <Check className="h-2.5 w-2.5 text-primary/70 shrink-0" />
+                      <span className="text-[10px] text-muted-foreground">{item}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-baseline gap-0.5">
+                    <span className="font-display text-base font-bold text-primary">$9</span>
+                    <span className="text-[10px] text-muted-foreground">/mo</span>
+                  </div>
+                  <button className="flex items-center gap-1 text-[10px] text-primary/80 hover:text-primary font-medium transition-colors">
+                    <span>Get notified</span>
+                    <ArrowRight className="h-2.5 w-2.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* ── Footer ─────────────────────────────────────────────────── */}
         <div className="border-t border-sidebar-border p-3 space-y-1 shrink-0">

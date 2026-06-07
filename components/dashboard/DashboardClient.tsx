@@ -37,8 +37,6 @@ export default function DashboardClient() {
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  // Tracks whether we're in the middle of an auto-created chat
-  // to prevent chatMessages effect from overriding optimistic state
   const pendingAutoCreateRef = useRef(false);
 
   // Detect initial screen size to set sidebar state
@@ -78,7 +76,6 @@ export default function DashboardClient() {
   // ── Load messages when switching chats ───────────────────────────────
 
   useEffect(() => {
-    // Skip overriding messages during auto-create streaming
     if (pendingAutoCreateRef.current) return;
     if (chatMessages && activeChatId) {
       setMessages(chatMessages.map((m) => ({
@@ -105,13 +102,11 @@ export default function DashboardClient() {
   const handleNewChat = useCallback(() => {
     setActiveChatId(null);
     setMessages([]);
-    // On mobile, close sidebar after selecting
     if (window.innerWidth < 768) setSidebarOpen(false);
   }, []);
 
   const handleSelectChat = useCallback((chatId: string) => {
     setActiveChatId(chatId);
-    // On mobile, close sidebar after selecting chat
     if (window.innerWidth < 768) setSidebarOpen(false);
   }, []);
 
@@ -127,7 +122,6 @@ export default function DashboardClient() {
     if (isStreaming) return;
     if (usageData?.hasReachedLimit) return;
 
-    // ── Auto-create a chat if none is selected (ChatGPT-style) ──────
     let chatId = activeChatId;
     if (!chatId) {
       try {
@@ -135,8 +129,6 @@ export default function DashboardClient() {
         const chat = await createChat.mutateAsync({ title, model: selectedModel });
         if (!chat) return;
         chatId = chat.id;
-        // Flag that we're auto-creating so the chatMessages effect
-        // doesn't overwrite our optimistic messages during streaming
         pendingAutoCreateRef.current = true;
         setActiveChatId(chatId);
       } catch {
@@ -216,7 +208,6 @@ export default function DashboardClient() {
     } finally {
       setIsStreaming(false);
       abortControllerRef.current = null;
-      // Allow chatMessages effect to sync again after streaming completes
       pendingAutoCreateRef.current = false;
     }
   }, [activeChatId, isStreaming, messages, selectedModel, selectedProvider, usageData, refetchUsage, refetchChats, createChat]);
@@ -277,7 +268,7 @@ export default function DashboardClient() {
         />
       )}
 
-      {/* Sidebar — overlay on mobile, inline on desktop */}
+      {/* Sidebar */}
       <div className={[
         "fixed md:relative z-40 md:z-auto h-full transition-transform duration-300 ease-in-out",
         sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
@@ -297,8 +288,9 @@ export default function DashboardClient() {
         />
       </div>
 
-      {/* Main content */}
+      {/* Main content — full height flex column */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden w-full">
+        {/* Header */}
         <ChatHeader
           selectedBrandedModel={selectedBrandedModel}
           onBrandedModelChange={handleBrandedModelChange}
@@ -308,7 +300,7 @@ export default function DashboardClient() {
           onOpenSettings={() => setSettingsOpen(true)}
         />
 
-        {/* Usage bar with upgrade nudge */}
+        {/* Usage bar */}
         {usageData && (
           <UsageBar
             used={usageData.used}
@@ -318,30 +310,37 @@ export default function DashboardClient() {
           />
         )}
 
-        <div className="flex-1 overflow-y-auto overscroll-contain">
-          {messages.length === 0 && !isStreaming ? (
-            <EmptyState onSuggestionClick={handleSendMessage} />
-          ) : (
-            <MessageList
-              messages={messages}
-              isStreaming={isStreaming}
-              messagesEndRef={messagesEndRef}
-            />
-          )}
-        </div>
+        {/* ── Chat area — fills all remaining space ── */}
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          {/* Message scroll area */}
+          <div className="flex-1 overflow-y-auto overscroll-contain">
+            {messages.length === 0 && !isStreaming ? (
+              /* Empty state sits inside the scroll area so it's vertically centered */
+              <div className="flex h-full min-h-[60vh] items-center justify-center">
+                <EmptyState />
+              </div>
+            ) : (
+              <MessageList
+                messages={messages}
+                isStreaming={isStreaming}
+                messagesEndRef={messagesEndRef}
+              />
+            )}
+          </div>
 
-        {/* Chat input — always enabled (auto-creates chat on first message) */}
-        <ChatInput
-          onSend={handleSendMessage}
-          isStreaming={isStreaming}
-          onStop={handleStopStreaming}
-          disabled={usageData?.hasReachedLimit === true}
-          placeholder={
-            usageData?.hasReachedLimit
-              ? "Daily limit reached · Upgrade to Pro for unlimited messages"
-              : undefined
-          }
-        />
+          {/* Chat input — pinned to bottom */}
+          <ChatInput
+            onSend={handleSendMessage}
+            isStreaming={isStreaming}
+            onStop={handleStopStreaming}
+            disabled={usageData?.hasReachedLimit === true}
+            placeholder={
+              usageData?.hasReachedLimit
+                ? "Daily limit reached · Upgrade to Pro for unlimited messages"
+                : undefined
+            }
+          />
+        </div>
       </div>
 
       {/* Settings modal */}
