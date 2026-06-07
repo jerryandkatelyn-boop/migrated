@@ -1,6 +1,6 @@
 "use client";
 
-import { Code, Bug, BookOpen, Rocket, Zap, Terminal } from "lucide-react";
+import { Code, Bug, BookOpen, Rocket, Zap, Terminal, Sparkles } from "lucide-react";
 
 interface EmptyStateProps {
   onSuggestionClick: (text: string) => void;
@@ -9,6 +9,9 @@ interface EmptyStateProps {
 const suggestions = [
   {
     icon: Code,
+    color: "text-orange-400",
+    bg: "bg-orange-500/10",
+    border: "border-orange-500/20 hover:border-orange-500/40",
     title: "Generate Script",
     description: "Create a complete player health system with regeneration",
     prompt:
@@ -16,20 +19,29 @@ const suggestions = [
   },
   {
     icon: Bug,
+    color: "text-red-400",
+    bg: "bg-red-500/10",
+    border: "border-red-500/20 hover:border-red-500/40",
     title: "Fix Code",
-    description: "Debug this RemoteEvent that's not firing properly",
+    description: "Debug a RemoteEvent that's not firing properly",
     prompt:
       "My RemoteEvent in Roblox isn't working. Here's my code:\n\n-- Server\nlocal RE = Instance.new('RemoteEvent')\nRE.Name = 'DamageEvent'\nRE.Parent = ReplicatedStorage\n\nRE.OnServerEvent:Connect(function(player, target, damage)\n  target.Humanoid.Health -= damage\nend)\n\n-- Client\nlocal RE = ReplicatedStorage:WaitForChild('DamageEvent')\nRE:FireServer(target, 50)\n\nCan you help me fix what's wrong?",
   },
   {
     icon: BookOpen,
+    color: "text-sky-400",
+    bg: "bg-sky-500/10",
+    border: "border-sky-500/20 hover:border-sky-500/40",
     title: "Learn Concept",
-    description: "Explain the difference between RemoteEvents and BindableEvents",
+    description: "Explain RemoteEvents vs BindableEvents with examples",
     prompt:
       "Explain the difference between RemoteEvents, RemoteFunctions, BindableEvents, and BindableFunctions in Roblox. Include when to use each one with code examples.",
   },
   {
     icon: Rocket,
+    color: "text-violet-400",
+    bg: "bg-violet-500/10",
+    border: "border-violet-500/20 hover:border-violet-500/40",
     title: "Build System",
     description: "Design a currency system with DataStore persistence",
     prompt:
@@ -37,37 +49,49 @@ const suggestions = [
   },
 ];
 
+const capabilities = [
+  { icon: Zap, label: "Code Generation" },
+  { icon: Bug, label: "Bug Fixing" },
+  { icon: BookOpen, label: "Teaching" },
+  { icon: Terminal, label: "Architecture" },
+];
+
 export function EmptyState({ onSuggestionClick }: EmptyStateProps) {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center px-4 py-12">
-      {/* Logo */}
-      <div className="mb-6">
-        <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4 mx-auto">
-          <Terminal className="h-8 w-8 text-primary" />
+    <div className="flex-1 flex flex-col items-center justify-center px-4 py-16 min-h-full">
+      {/* Logo area */}
+      <div className="text-center mb-10">
+        <div className="relative w-20 h-20 mx-auto mb-5">
+          <div className="absolute inset-0 rounded-3xl bg-primary/20 blur-xl animate-glow-pulse" />
+          <div className="relative w-20 h-20 rounded-3xl bg-card border border-primary/30 flex items-center justify-center shadow-card-dark">
+            <Zap className="h-10 w-10 text-primary" strokeWidth={1.5} />
+          </div>
         </div>
-        <h2 className="text-2xl font-bold text-center tracking-tight">
+        <h2 className="font-display text-3xl font-bold text-gradient-white mb-1">
           RECOIL AI
         </h2>
-        <p className="text-sm text-muted-foreground text-center mt-1">
+        <p className="text-sm text-muted-foreground">
           Your Roblox Development Intelligence Platform
         </p>
       </div>
 
-      {/* Suggestions */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl mt-4">
-        {suggestions.map((suggestion, i) => (
+      {/* Suggestions grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl mb-10">
+        {suggestions.map((s, i) => (
           <button
             key={i}
-            onClick={() => onSuggestionClick(suggestion.prompt)}
-            className="flex items-start gap-3 p-4 rounded-lg border border-border bg-muted/30 hover:bg-muted/60 hover:border-primary/30 transition-all text-left group"
+            onClick={() => onSuggestionClick(s.prompt)}
+            className={`flex items-start gap-3.5 p-4 rounded-xl border ${s.border} bg-card/50 hover:bg-card transition-all duration-200 text-left group hover:shadow-card-dark`}
           >
-            <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
-              <suggestion.icon className="h-4 w-4 text-primary" />
+            <div className={`w-9 h-9 rounded-xl ${s.bg} border ${s.border} flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-110`}>
+              <s.icon className={`h-4.5 w-4.5 ${s.color}`} />
             </div>
             <div className="min-w-0">
-              <h3 className="text-sm font-medium">{suggestion.title}</h3>
-              <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                {suggestion.description}
+              <p className="font-display text-sm font-semibold text-foreground mb-0.5">
+                {s.title}
+              </p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {s.description}
               </p>
             </div>
           </button>
@@ -75,18 +99,19 @@ export function EmptyState({ onSuggestionClick }: EmptyStateProps) {
       </div>
 
       {/* Capabilities */}
-      <div className="flex items-center gap-6 mt-8 text-xs text-muted-foreground">
-        <div className="flex items-center gap-1.5">
-          <Zap className="h-3 w-3" />
-          <span>Code Generation</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Bug className="h-3 w-3" />
-          <span>Bug Fixing</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <BookOpen className="h-3 w-3" />
-          <span>Teaching</span>
+      <div className="flex flex-wrap justify-center gap-2">
+        {capabilities.map((cap, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border/50 bg-card/30 text-xs text-muted-foreground"
+          >
+            <cap.icon className="h-3 w-3 text-primary/70" />
+            {cap.label}
+          </div>
+        ))}
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-primary/20 bg-primary/5 text-xs text-primary/80">
+          <Sparkles className="h-3 w-3" />
+          Luau-native AI
         </div>
       </div>
     </div>

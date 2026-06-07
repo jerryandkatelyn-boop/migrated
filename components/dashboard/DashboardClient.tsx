@@ -11,6 +11,7 @@ import { MessageList } from "@/components/chat/MessageList";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { UsageBar } from "@/components/usage/UsageBar";
 import { EmptyState } from "@/components/chat/EmptyState";
+import { Zap } from "lucide-react";
 
 import type { ChatMessage } from "@/types/database";
 
@@ -28,7 +29,7 @@ export default function DashboardClient() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // ── tRPC Queries ────────────────────────────────────────────────────────────
+  // ── tRPC Queries ─────────────────────────────────────────────────────
 
   const { data: chatList, refetch: refetchChats } = trpc.chat.list.useQuery(
     undefined,
@@ -45,196 +46,137 @@ export default function DashboardClient() {
 
   const { data: modelsList } = trpc.models.useQuery();
 
-  const createChat = trpc.chat.create.useMutation({
-    onSuccess: () => refetchChats(),
-  });
+  const createChat = trpc.chat.create.useMutation({ onSuccess: () => refetchChats() });
 
   const deleteChat = trpc.chat.delete.useMutation({
     onSuccess: (_, vars) => {
       refetchChats();
-      if (activeChatId === vars.id) {
-        setActiveChatId(null);
-        setMessages([]);
-      }
+      if (activeChatId === vars.id) { setActiveChatId(null); setMessages([]); }
     },
   });
 
-  const updateChat = trpc.chat.update.useMutation({
-    onSuccess: () => refetchChats(),
-  });
+  const updateChat = trpc.chat.update.useMutation({ onSuccess: () => refetchChats() });
 
-  // ── Load Messages When Chat Changes ────────────────────────────────────────
+  // ── Load messages ────────────────────────────────────────────────────
 
   useEffect(() => {
     if (chatMessages && activeChatId) {
-      const loaded: ChatMessage[] = chatMessages.map((m) => ({
+      setMessages(chatMessages.map((m) => ({
         role: m.role as "user" | "assistant" | "system",
         content: m.content,
-      }));
-      setMessages(loaded);
+      })));
     }
   }, [chatMessages, activeChatId]);
 
-  // ── Auto Scroll ─────────────────────────────────────────────────────────────
+  // ── Auto scroll ──────────────────────────────────────────────────────
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // ── Handlers ────────────────────────────────────────────────────────────────
+  // ── Handlers ─────────────────────────────────────────────────────────
 
   const handleNewChat = useCallback(async () => {
-    const chat = await createChat.mutateAsync({
-      title: "New Chat",
-      model: selectedModel,
-    });
-    if (chat) {
-      setActiveChatId(chat.id);
-      setMessages([]);
-    }
+    const chat = await createChat.mutateAsync({ title: "New Chat", model: selectedModel });
+    if (chat) { setActiveChatId(chat.id); setMessages([]); }
   }, [createChat, selectedModel]);
 
-  const handleSelectChat = useCallback((chatId: string) => {
-    setActiveChatId(chatId);
-  }, []);
+  const handleSelectChat = useCallback((chatId: string) => { setActiveChatId(chatId); }, []);
 
-  const handleDeleteChat = useCallback(
-    async (chatId: string) => {
-      await deleteChat.mutateAsync({ id: chatId });
-    },
-    [deleteChat]
-  );
+  const handleDeleteChat = useCallback(async (chatId: string) => {
+    await deleteChat.mutateAsync({ id: chatId });
+  }, [deleteChat]);
 
-  const handleRenameChat = useCallback(
-    async (chatId: string, title: string) => {
-      await updateChat.mutateAsync({ id: chatId, title });
-    },
-    [updateChat]
-  );
+  const handleRenameChat = useCallback(async (chatId: string, title: string) => {
+    await updateChat.mutateAsync({ id: chatId, title });
+  }, [updateChat]);
 
-  const handleSendMessage = useCallback(
-    async (content: string) => {
-      if (!activeChatId || isStreaming) return;
-      if (usageData?.hasReachedLimit) return;
+  const handleSendMessage = useCallback(async (content: string) => {
+    if (!activeChatId || isStreaming) return;
+    if (usageData?.hasReachedLimit) return;
 
-      const userMsg: ChatMessage = { role: "user", content };
-      setMessages((prev) => [...prev, userMsg]);
-      setIsStreaming(true);
+    const userMsg: ChatMessage = { role: "user", content };
+    setMessages((prev) => [...prev, userMsg]);
+    setIsStreaming(true);
 
-      try {
-        const allMessages: ChatMessage[] = [...messages, userMsg];
+    try {
+      const allMessages: ChatMessage[] = [...messages, userMsg];
+      abortControllerRef.current = new AbortController();
 
-        abortControllerRef.current = new AbortController();
+      const response = await fetch("/api/stream/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: abortControllerRef.current.signal,
+        body: JSON.stringify({
+          chatId: activeChatId,
+          messages: allMessages,
+          model: selectedModel,
+          provider: selectedProvider,
+        }),
+      });
 
-        const response = await fetch("/api/stream/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          signal: abortControllerRef.current.signal,
-          body: JSON.stringify({
-            chatId: activeChatId,
-            messages: allMessages,
-            model: selectedModel,
-            provider: selectedProvider,
-          }),
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: "assistant",
-              content: `**Error:** ${error.error || "Failed to get response"}`,
-            },
-          ]);
-          setIsStreaming(false);
-          refetchUsage();
-          return;
-        }
-
-        if (!response.body) {
-          setIsStreaming(false);
-          return;
-        }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let assistantContent = "";
-
-        // Append empty assistant placeholder
+      if (!response.ok) {
+        const error = await response.json();
         setMessages((prev) => [
           ...prev,
-          { role: "assistant", content: "" },
+          { role: "assistant", content: `**Error:** ${error.error || "Failed to get response"}` },
         ]);
+        setIsStreaming(false);
+        refetchUsage();
+        return;
+      }
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+      if (!response.body) { setIsStreaming(false); return; }
 
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split("\n").filter((l) => l.trim());
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let assistantContent = "";
 
-          for (const line of lines) {
-            if (line.startsWith("0:")) {
-              try {
-                const text = JSON.parse(line.slice(2));
-                assistantContent += text;
-                setMessages((prev) => {
-                  const updated = [...prev];
-                  const last = updated[updated.length - 1];
-                  if (last && last.role === "assistant") {
-                    last.content = assistantContent;
-                  }
-                  return updated;
-                });
-              } catch {
-                // skip
-              }
-            }
+      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split("\n").filter((l) => l.trim());
+        for (const line of lines) {
+          if (line.startsWith("0:")) {
+            try {
+              const text = JSON.parse(line.slice(2));
+              assistantContent += text;
+              setMessages((prev) => {
+                const updated = [...prev];
+                const last = updated[updated.length - 1];
+                if (last && last.role === "assistant") last.content = assistantContent;
+                return updated;
+              });
+            } catch { /* skip */ }
           }
         }
-
-        refetchUsage();
-        refetchChats();
-      } catch (error) {
-        if ((error as Error).name !== "AbortError") {
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: "assistant",
-              content:
-                "**Error:** Failed to connect to AI service. Please try again.",
-            },
-          ]);
-        }
-      } finally {
-        setIsStreaming(false);
-        abortControllerRef.current = null;
       }
-    },
-    [
-      activeChatId,
-      isStreaming,
-      messages,
-      selectedModel,
-      selectedProvider,
-      usageData,
-      refetchUsage,
-      refetchChats,
-    ]
-  );
+
+      refetchUsage();
+      refetchChats();
+    } catch (error) {
+      if ((error as Error).name !== "AbortError") {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: "**Error:** Failed to connect to AI service. Please try again." },
+        ]);
+      }
+    } finally {
+      setIsStreaming(false);
+      abortControllerRef.current = null;
+    }
+  }, [activeChatId, isStreaming, messages, selectedModel, selectedProvider, usageData, refetchUsage, refetchChats]);
 
   const handleStopStreaming = useCallback(() => {
     abortControllerRef.current?.abort();
     setIsStreaming(false);
   }, []);
 
-  // ── Loading State ───────────────────────────────────────────────────────────
+  // ── Auth redirect ────────────────────────────────────────────────────
 
-  // Redirect to /login when auth has fully resolved and there is no session.
-  // useAuth now derives isAuthenticated from the client-side Supabase session
-  // as well as the tRPC profile, so this only fires when the user is genuinely
-  // signed out — not when auth.me returned null due to a profile lookup hiccup.
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.push("/login");
@@ -242,20 +184,43 @@ export default function DashboardClient() {
     }
   }, [isLoading, isAuthenticated, router]);
 
-  // Only block render while loading. Once isLoading is false we either have
-  // a confirmed session (render the dashboard) or we don't (redirect above).
+  // ── Loading screen ───────────────────────────────────────────────────
+
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen w-screen bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-muted-foreground">Loading RECOIL AI...</p>
+      <div className="flex items-center justify-center h-screen w-screen bg-background relative overflow-hidden">
+        {/* BG */}
+        <div className="absolute inset-0 mesh-hero" />
+        <div className="absolute inset-0 grid-pattern opacity-20" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-primary/8 rounded-full blur-[100px]" />
+
+        {/* Spinner content */}
+        <div className="relative z-10 flex flex-col items-center gap-6">
+          <div className="relative w-16 h-16">
+            {/* Outer pulse ring */}
+            <div className="absolute inset-0 rounded-full border-2 border-primary/20 animate-ping" />
+            {/* Spinning ring */}
+            <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-primary animate-spin" />
+            {/* Icon */}
+            <div className="absolute inset-2 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center">
+              <Zap className="h-5 w-5 text-primary" strokeWidth={2} />
+            </div>
+          </div>
+
+          <div className="text-center">
+            <p className="font-display text-sm font-semibold tracking-widest uppercase text-foreground/80 mb-1">
+              RECOIL AI
+            </p>
+            <p className="text-xs text-muted-foreground animate-pulse">
+              Loading your workspace…
+            </p>
+          </div>
         </div>
       </div>
     );
   }
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  // ── Render ───────────────────────────────────────────────────────────
 
   return (
     <div className="flex h-screen w-screen bg-background overflow-hidden">
@@ -271,7 +236,7 @@ export default function DashboardClient() {
         user={user}
       />
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <ChatHeader
           selectedModel={selectedModel}
           selectedProvider={selectedProvider}
@@ -310,10 +275,10 @@ export default function DashboardClient() {
           disabled={!activeChatId || usageData?.hasReachedLimit}
           placeholder={
             !activeChatId
-              ? "Start a new chat to begin..."
+              ? "Select or create a conversation to begin…"
               : usageData?.hasReachedLimit
-              ? "Daily limit reached. Upgrade to continue."
-              : "Ask RECOIL AI anything about Roblox development..."
+              ? "Daily limit reached · Come back tomorrow"
+              : undefined
           }
         />
       </div>

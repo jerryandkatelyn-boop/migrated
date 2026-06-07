@@ -3,15 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Terminal, Zap, Eye, EyeOff } from "lucide-react";
+import { Zap, Eye, EyeOff, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
@@ -28,46 +21,47 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
-
     const supabase = createClient();
-
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
     });
-
     if (signInError) {
       setError(signInError.message);
       setIsLoading(false);
       return;
     }
-
-    // router.refresh() is required with Next.js App Router + Supabase SSR.
-    // Without it the server-side cache still reflects the unauthenticated state
-    // and the first tRPC call can race ahead before the new session cookies are
-    // picked up, causing auth.me to return null and triggering the redirect loop.
     router.push("/dashboard");
     router.refresh();
   };
 
   return (
-    <Card className="border-border/50 shadow-2xl">
-      <CardHeader className="text-center pb-2">
-        <div className="mx-auto w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
-          <Terminal className="h-7 w-7 text-primary" />
-        </div>
-        <CardTitle className="text-xl font-bold tracking-tight">
-          Welcome back
-        </CardTitle>
-        <CardDescription className="text-sm mt-1">
-          Sign in to RECOIL AI
-        </CardDescription>
-      </CardHeader>
+    <div className="glass-orange rounded-2xl overflow-hidden shadow-card-dark">
+      {/* Card header strip */}
+      <div className="h-1 w-full bg-gradient-to-r from-primary/0 via-primary to-primary/0" />
 
-      <CardContent className="space-y-4 pt-4">
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="email" className="text-xs font-medium">
+      <div className="p-8">
+        {/* Logo */}
+        <div className="flex flex-col items-center mb-8">
+          <div className="relative w-14 h-14 mb-4">
+            <div className="absolute inset-0 rounded-2xl bg-primary/20 blur-md" />
+            <div className="relative w-14 h-14 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center">
+              <Zap className="h-7 w-7 text-primary" strokeWidth={2} />
+            </div>
+          </div>
+          <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">
+            Welcome back
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Sign in to RECOIL AI
+          </p>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleLogin} className="space-y-5">
+          {/* Email */}
+          <div className="space-y-2">
+            <Label htmlFor="email" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider font-display">
               Email
             </Label>
             <Input
@@ -78,19 +72,20 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
-              className="h-9 text-sm"
               disabled={isLoading}
+              className="h-11 text-sm bg-background/60 border-border/60 focus:border-primary/60 focus:ring-primary/20 transition-all"
             />
           </div>
 
-          <div className="space-y-1.5">
+          {/* Password */}
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label htmlFor="password" className="text-xs font-medium">
+              <Label htmlFor="password" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider font-display">
                 Password
               </Label>
               <Link
                 href="/reset-password"
-                className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                className="text-[11px] text-primary/70 hover:text-primary transition-colors"
               >
                 Forgot password?
               </Link>
@@ -104,61 +99,70 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="current-password"
-                className="h-9 text-sm pr-9"
                 disabled={isLoading}
+                className="h-11 text-sm pr-11 bg-background/60 border-border/60 focus:border-primary/60 focus:ring-primary/20 transition-all"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 tabIndex={-1}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-muted-foreground transition-colors"
               >
-                {showPassword ? (
-                  <EyeOff className="h-3.5 w-3.5" />
-                ) : (
-                  <Eye className="h-3.5 w-3.5" />
-                )}
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
           </div>
 
+          {/* Error */}
           {error && (
-            <p className="text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-md px-3 py-2">
-              {error}
-            </p>
+            <div className="flex items-start gap-2.5 text-xs text-destructive bg-destructive/8 border border-destructive/20 rounded-lg px-3.5 py-3">
+              <span className="shrink-0 mt-0.5">⚠</span>
+              <span>{error}</span>
+            </div>
           )}
 
-          <Button type="submit" className="w-full h-9 text-sm" disabled={isLoading}>
+          {/* Submit */}
+          <Button
+            type="submit"
+            disabled={isLoading}
+            className="w-full h-11 text-sm font-semibold bg-primary hover:bg-primary/90 text-white shine-btn glow-orange transition-all"
+          >
             {isLoading ? (
-              <div className="flex items-center gap-2">
-                <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                Signing in...
-              </div>
+              <span className="flex items-center gap-2.5">
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Signing in…
+              </span>
             ) : (
-              <>
-                <Zap className="mr-2 h-3.5 w-3.5" />
+              <span className="flex items-center gap-2">
                 Sign in
-              </>
+                <ArrowRight className="h-4 w-4" />
+              </span>
             )}
           </Button>
         </form>
 
-        <div className="text-center">
-          <p className="text-xs text-muted-foreground">
-            Don&apos;t have an account?{" "}
-            <Link
-              href="/signup"
-              className="text-primary hover:underline font-medium"
-            >
-              Create one free
-            </Link>
-          </p>
+        {/* Divider */}
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-border/50" />
+          </div>
+          <div className="relative flex justify-center text-[11px] text-muted-foreground/50">
+            <span className="bg-card px-3">or</span>
+          </div>
         </div>
 
-        <p className="text-[10px] text-muted-foreground text-center">
-          Free tier: 20 messages per day
+        {/* Signup link */}
+        <p className="text-center text-sm text-muted-foreground">
+          Don&apos;t have an account?{" "}
+          <Link href="/signup" className="text-primary hover:text-primary/80 font-semibold transition-colors">
+            Create one free
+          </Link>
         </p>
-      </CardContent>
-    </Card>
+
+        <p className="text-center text-[11px] text-muted-foreground/50 mt-4">
+          Free tier · 20 messages per day · No card required
+        </p>
+      </div>
+    </div>
   );
 }
