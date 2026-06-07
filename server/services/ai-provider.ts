@@ -192,6 +192,61 @@ export function getActiveProvider(
   };
 }
 
+// ─── Branded Models ────────────────────────────────────────────────────────────
+// These are the 3 user-facing branded tiers. They map to real underlying models
+// but are presented with friendly, brand-owned names.
+
+export interface BrandedModel {
+  id: string;         // internal branded id, e.g. "spark"
+  name: string;       // user-facing name, e.g. "Spark"
+  tier: "fast" | "balanced" | "powerful";
+  tagline: string;
+  provider: string;   // underlying provider slug
+  model: string;      // underlying model string
+  badge: string;      // badge label
+}
+
+export const BRANDED_MODELS: BrandedModel[] = [
+  {
+    id: "spark",
+    name: "Spark",
+    tier: "fast",
+    tagline: "Lightning fast — great for quick questions",
+    provider: "openrouter",
+    model: "openai/gpt-4o-mini",
+    badge: "Fast",
+  },
+  {
+    id: "core",
+    name: "Core",
+    tier: "balanced",
+    tagline: "Best balance of speed and intelligence",
+    provider: "openrouter",
+    model: "anthropic/claude-sonnet-4-5",
+    badge: "Balanced",
+  },
+  {
+    id: "apex",
+    name: "Apex",
+    tier: "powerful",
+    tagline: "Maximum intelligence for complex problems",
+    provider: "openrouter",
+    model: "anthropic/claude-opus-4-5",
+    badge: "Powerful",
+  },
+];
+
+export function getBrandedModels() {
+  return BRANDED_MODELS;
+}
+
+export function resolveBrandedModel(brandedId: string): { provider: string; model: string } {
+  const branded = BRANDED_MODELS.find((m) => m.id === brandedId);
+  if (branded) return { provider: branded.provider, model: branded.model };
+  // Fallback: treat as raw model string routed through openrouter
+  return { provider: "openrouter", model: brandedId };
+}
+
 // ─── Available Models ──────────────────────────────────────────────────────────
 
 export function getAvailableModels() {

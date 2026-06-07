@@ -336,4 +336,14 @@
     box-shadow: 0 0 0 1px hsl(var(--primary) / 0.05), 0 8px 32px hsl(0 0% 0% / 0.3);
     transform: translateY(-2px);
   }
+
+  /* Mobile safe area utility */
+  .safe-area-bottom {
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
+
+  /* Dynamic viewport height — avoids iOS Safari toolbar issue */
+  .h-dvh {
+    height: 100dvh;
+  }
 }

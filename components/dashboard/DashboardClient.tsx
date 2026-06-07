@@ -11,7 +11,9 @@ import { MessageList } from "@/components/chat/MessageList";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { UsageBar } from "@/components/usage/UsageBar";
 import { EmptyState } from "@/components/chat/EmptyState";
+import { SettingsModal } from "@/components/settings/SettingsModal";
 import { Zap } from "lucide-react";
+import { resolveBrandedModel } from "@/server/services/ai-provider";
 
 import type { ChatMessage } from "@/types/database";
 
@@ -22,12 +24,25 @@ export default function DashboardClient() {
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [selectedModel, setSelectedModel] = useState("openai/gpt-4o-mini");
+
+  // Branded model selection
+  const [selectedBrandedModel, setSelectedBrandedModel] = useState("core");
+  const [selectedModel, setSelectedModel] = useState("anthropic/claude-sonnet-4-5");
   const [selectedProvider, setSelectedProvider] = useState("openrouter");
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // Sidebar: open on desktop, closed on mobile by default
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Settings modal
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Detect initial screen size to set sidebar state
+  useEffect(() => {
+    const isDesktop = window.innerWidth >= 768;
+    setSidebarOpen(isDesktop);
+  }, []);
 
   // ── tRPC Queries ─────────────────────────────────────────────────────
 
@@ -44,7 +59,7 @@ export default function DashboardClient() {
   const { data: usageData, refetch: refetchUsage } =
     trpc.chat.checkLimit.useQuery(undefined, { enabled: isAuthenticated });
 
-  const { data: modelsList } = trpc.models.useQuery();
+  const { data: brandedModels = [] } = trpc.brandedModels.useQuery();
 
   const createChat = trpc.chat.create.useMutation({ onSuccess: () => refetchChats() });
 
@@ -76,12 +91,27 @@ export default function DashboardClient() {
 
   // ── Handlers ─────────────────────────────────────────────────────────
 
+  const handleBrandedModelChange = useCallback((brandedId: string, provider: string, model: string) => {
+    setSelectedBrandedModel(brandedId);
+    setSelectedProvider(provider);
+    setSelectedModel(model);
+  }, []);
+
   const handleNewChat = useCallback(async () => {
     const chat = await createChat.mutateAsync({ title: "New Chat", model: selectedModel });
-    if (chat) { setActiveChatId(chat.id); setMessages([]); }
+    if (chat) {
+      setActiveChatId(chat.id);
+      setMessages([]);
+      // On mobile, close sidebar after selecting chat
+      if (window.innerWidth < 768) setSidebarOpen(false);
+    }
   }, [createChat, selectedModel]);
 
-  const handleSelectChat = useCallback((chatId: string) => { setActiveChatId(chatId); }, []);
+  const handleSelectChat = useCallback((chatId: string) => {
+    setActiveChatId(chatId);
+    // On mobile, close sidebar after selecting chat
+    if (window.innerWidth < 768) setSidebarOpen(false);
+  }, []);
 
   const handleDeleteChat = useCallback(async (chatId: string) => {
     await deleteChat.mutateAsync({ id: chatId });
@@ -189,24 +219,17 @@ export default function DashboardClient() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen w-screen bg-background relative overflow-hidden">
-        {/* BG */}
         <div className="absolute inset-0 mesh-hero" />
         <div className="absolute inset-0 grid-pattern opacity-20" />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-primary/8 rounded-full blur-[100px]" />
-
-        {/* Spinner content */}
         <div className="relative z-10 flex flex-col items-center gap-6">
           <div className="relative w-16 h-16">
-            {/* Outer pulse ring */}
             <div className="absolute inset-0 rounded-full border-2 border-primary/20 animate-ping" />
-            {/* Spinning ring */}
             <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-primary animate-spin" />
-            {/* Icon */}
             <div className="absolute inset-2 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center">
               <Zap className="h-5 w-5 text-primary" strokeWidth={2} />
             </div>
           </div>
-
           <div className="text-center">
             <p className="font-display text-sm font-semibold tracking-widest uppercase text-foreground/80 mb-1">
               RECOIL AI
@@ -223,28 +246,44 @@ export default function DashboardClient() {
   // ── Render ───────────────────────────────────────────────────────────
 
   return (
-    <div className="flex h-screen w-screen bg-background overflow-hidden">
-      <Sidebar
-        chats={chatList || []}
-        activeChatId={activeChatId}
-        onSelectChat={handleSelectChat}
-        onNewChat={handleNewChat}
-        onDeleteChat={handleDeleteChat}
-        onRenameChat={handleRenameChat}
-        isOpen={sidebarOpen}
-        onToggle={() => setSidebarOpen(!sidebarOpen)}
-        user={user}
-      />
+    <div className="flex h-screen h-dvh w-screen bg-background overflow-hidden relative">
+      {/* Mobile sidebar overlay backdrop */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-30 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      {/* Sidebar — overlay on mobile, inline on desktop */}
+      <div className={[
+        "fixed md:relative z-40 md:z-auto h-full transition-transform duration-300 ease-in-out",
+        sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
+        sidebarOpen ? "md:flex" : "md:hidden",
+      ].join(" ")}>
+        <Sidebar
+          chats={chatList || []}
+          activeChatId={activeChatId}
+          onSelectChat={handleSelectChat}
+          onNewChat={handleNewChat}
+          onDeleteChat={handleDeleteChat}
+          onRenameChat={handleRenameChat}
+          isOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen(!sidebarOpen)}
+          user={user}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
+      </div>
+
+      {/* Main content */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden w-full">
         <ChatHeader
-          selectedModel={selectedModel}
-          selectedProvider={selectedProvider}
-          onModelChange={setSelectedModel}
-          onProviderChange={setSelectedProvider}
-          models={modelsList || []}
+          selectedBrandedModel={selectedBrandedModel}
+          onBrandedModelChange={handleBrandedModelChange}
+          brandedModels={brandedModels}
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+          onOpenSettings={() => setSettingsOpen(true)}
         />
 
         {usageData && (
@@ -256,7 +295,7 @@ export default function DashboardClient() {
           />
         )}
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto overscroll-contain">
           {messages.length === 0 && !isStreaming ? (
             <EmptyState onSuggestionClick={handleSendMessage} />
           ) : (
@@ -282,6 +321,17 @@ export default function DashboardClient() {
           }
         />
       </div>
+
+      {/* Settings modal */}
+      <SettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        user={user}
+        brandedModels={brandedModels}
+        selectedBrandedModel={selectedBrandedModel}
+        onBrandedModelChange={handleBrandedModelChange}
+        resolveModel={(id) => resolveBrandedModel(id)}
+      />
     </div>
   );
 }

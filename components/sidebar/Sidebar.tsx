@@ -25,11 +25,12 @@ interface SidebarProps {
   isOpen: boolean;
   onToggle: () => void;
   user: User | null;
+  onOpenSettings?: () => void;
 }
 
 export function Sidebar({
   chats, activeChatId, onSelectChat, onNewChat,
-  onDeleteChat, onRenameChat, isOpen, onToggle, user,
+  onDeleteChat, onRenameChat, isOpen, onToggle, user, onOpenSettings,
 }: SidebarProps) {
   const router = useRouter();
   const { logout } = useAuth();
@@ -47,8 +48,8 @@ export function Sidebar({
     <TooltipProvider delayDuration={0}>
       <div
         className={cn(
-          "flex flex-col h-full bg-sidebar border-r border-sidebar-border transition-all duration-300 ease-in-out",
-          isOpen ? "w-[268px] min-w-[268px]" : "w-0 min-w-0 overflow-hidden opacity-0 pointer-events-none"
+          "flex flex-col h-full bg-sidebar border-r border-sidebar-border",
+          "w-[268px] min-w-[268px]"
         )}
       >
         {/* ── Header ─────────────────────────────────────────────────── */}
@@ -215,12 +216,11 @@ export function Sidebar({
           )}
 
           <button
-            disabled
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-muted-foreground/40 cursor-not-allowed"
+            onClick={onOpenSettings}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors"
           >
             <Settings className="h-3.5 w-3.5" />
             Settings
-            <span className="ml-auto text-[9px] bg-muted rounded px-1.5 py-0.5 uppercase tracking-wider">Soon</span>
           </button>
 
           {/* User card */}

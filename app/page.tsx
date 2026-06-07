@@ -2,9 +2,10 @@ import Link from "next/link";
 import {
   Zap, Code, Bug, BookOpen, Rocket, Shield,
   Terminal, ArrowRight, Star, GitBranch, Layers,
-  Bot, ChevronRight, Check, Cpu, Globe, Lock,
+  Bot, ChevronRight, Check, Cpu, Globe, Lock, User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase/server";
 
 /* ─── Data ──────────────────────────────────────────────────────────── */
 
@@ -111,11 +112,11 @@ const steps = [
 ];
 
 const providers = [
-  { name: "OpenAI", tag: "GPT-4o" },
-  { name: "Anthropic", tag: "Claude" },
-  { name: "Google", tag: "Gemini" },
-  { name: "DeepSeek", tag: "DeepSeek" },
-  { name: "OpenRouter", tag: "Gateway" },
+  { name: "Spark",   tag: "Fast" },
+  { name: "Core",    tag: "Balanced" },
+  { name: "Apex",    tag: "Powerful" },
+  { name: "Spark",   tag: "Fast" },
+  { name: "Core",    tag: "Balanced" },
 ];
 
 const luauCode = `-- RECOIL AI · Health System with DataStore
@@ -154,7 +155,18 @@ end)`;
 
 /* ─── Component ─────────────────────────────────────────────────────── */
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  // Check if user is already authenticated (server-side)
+  let isLoggedIn = false;
+  try {
+    const supabase = await createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    isLoggedIn = !!session;
+  } catch {
+    // If Supabase env vars aren't set, fail gracefully
+    isLoggedIn = false;
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
 
@@ -176,15 +188,33 @@ export default function LandingPage() {
 
           {/* Nav links + CTAs */}
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="sm" asChild className="text-muted-foreground hover:text-foreground text-sm">
-              <Link href="/login">Sign in</Link>
-            </Button>
-            <Button size="sm" asChild className="text-sm h-9 px-5 bg-primary hover:bg-primary/90 text-white shine-btn glow-orange">
-              <Link href="/signup">
-                Get started free
-                <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-              </Link>
-            </Button>
+            {isLoggedIn ? (
+              /* Logged-in state: show account button */
+              <>
+                <Button variant="ghost" size="sm" asChild className="text-muted-foreground hover:text-foreground text-sm">
+                  <Link href="/dashboard">Dashboard</Link>
+                </Button>
+                <Button size="sm" asChild className="text-sm h-9 px-5 bg-primary hover:bg-primary/90 text-white shine-btn glow-orange">
+                  <Link href="/dashboard">
+                    <User className="mr-1.5 h-3.5 w-3.5" />
+                    My Account
+                  </Link>
+                </Button>
+              </>
+            ) : (
+              /* Logged-out state: show sign in + get started */
+              <>
+                <Button variant="ghost" size="sm" asChild className="text-muted-foreground hover:text-foreground text-sm">
+                  <Link href="/login">Sign in</Link>
+                </Button>
+                <Button size="sm" asChild className="text-sm h-9 px-5 bg-primary hover:bg-primary/90 text-white shine-btn glow-orange">
+                  <Link href="/signup">
+                    Get started free
+                    <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                  </Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </nav>
@@ -209,7 +239,7 @@ export default function LandingPage() {
               <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
             </span>
             <span className="text-xs font-medium text-primary font-display tracking-wide">
-              Powered by Claude · GPT-4o · Gemini · DeepSeek
+              Spark · Core · Apex — Three tiers, one platform
             </span>
           </div>
 
@@ -228,18 +258,29 @@ export default function LandingPage() {
 
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row gap-3 justify-center mb-14 animate-fade-in-up delay-300">
-            <Button size="lg" asChild className="h-12 px-8 text-sm font-semibold bg-primary hover:bg-primary/90 text-white shine-btn glow-orange">
-              <Link href="/signup">
-                <Zap className="mr-2 h-4 w-4" />
-                Start building free
-              </Link>
-            </Button>
-            <Button variant="outline" size="lg" asChild className="h-12 px-8 text-sm border-border/60 hover:border-primary/40 hover:bg-primary/5">
-              <Link href="/login">
-                Sign in to account
-                <ChevronRight className="ml-1 h-4 w-4" />
-              </Link>
-            </Button>
+            {isLoggedIn ? (
+              <Button size="lg" asChild className="h-12 px-8 text-sm font-semibold bg-primary hover:bg-primary/90 text-white shine-btn glow-orange">
+                <Link href="/dashboard">
+                  <Zap className="mr-2 h-4 w-4" />
+                  Go to Dashboard
+                </Link>
+              </Button>
+            ) : (
+              <>
+                <Button size="lg" asChild className="h-12 px-8 text-sm font-semibold bg-primary hover:bg-primary/90 text-white shine-btn glow-orange">
+                  <Link href="/signup">
+                    <Zap className="mr-2 h-4 w-4" />
+                    Start building free
+                  </Link>
+                </Button>
+                <Button variant="outline" size="lg" asChild className="h-12 px-8 text-sm border-border/60 hover:border-primary/40 hover:bg-primary/5">
+                  <Link href="/login">
+                    Sign in to account
+                    <ChevronRight className="ml-1 h-4 w-4" />
+                  </Link>
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Stats row */}
@@ -320,24 +361,28 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── PROVIDERS STRIP ───────────────────────────────────────────── */}
-      <section className="border-y border-border/50 bg-card/30 py-5 overflow-hidden">
-        <p className="text-center text-[11px] font-display font-semibold uppercase tracking-widest text-muted-foreground/60 mb-4">
-          Powered by the world's best AI
+      {/* ── MODELS STRIP ──────────────────────────────────────────────── */}
+      <section className="border-y border-border/50 bg-card/30 py-6 px-4">
+        <p className="text-center text-[11px] font-display font-semibold uppercase tracking-widest text-muted-foreground/60 mb-5">
+          Three models. One platform. Zero complexity.
         </p>
-        <div className="flex overflow-hidden">
-          <div className="flex gap-6 animate-marquee whitespace-nowrap">
-            {[...providers, ...providers, ...providers, ...providers].map((p, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-2 px-5 py-2 rounded-full border border-border/60 bg-card/50 shrink-0"
-              >
-                <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                <span className="text-xs font-medium text-foreground/80">{p.name}</span>
-                <span className="text-[10px] text-muted-foreground font-mono">{p.tag}</span>
+        <div className="flex flex-col sm:flex-row justify-center gap-4 max-w-2xl mx-auto">
+          {[
+            { name: "Spark", badge: "Fast", desc: "Lightning quick answers", color: "text-emerald-400", border: "border-emerald-400/20", bg: "bg-emerald-400/5", dot: "bg-emerald-400" },
+            { name: "Core",  badge: "Balanced", desc: "Speed meets intelligence", color: "text-primary",    border: "border-primary/20",    bg: "bg-primary/5",    dot: "bg-primary" },
+            { name: "Apex",  badge: "Powerful", desc: "Maximum capability", color: "text-violet-400",  border: "border-violet-400/20", bg: "bg-violet-400/5", dot: "bg-violet-400" },
+          ].map((m, i) => (
+            <div key={i} className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-xl border ${m.border} ${m.bg}`}>
+              <div className={`w-2.5 h-2.5 rounded-full ${m.dot} shrink-0`} />
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className={`font-display text-sm font-bold ${m.color}`}>{m.name}</span>
+                  <span className={`text-[9px] font-display font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${m.color} ${m.border}`}>{m.badge}</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-0.5">{m.desc}</p>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </section>
 

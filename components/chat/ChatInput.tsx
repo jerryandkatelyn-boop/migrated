@@ -21,7 +21,7 @@ export function ChatInput({ onSend, isStreaming, onStop, disabled, placeholder }
     const textarea = textareaRef.current;
     if (textarea) {
       textarea.style.height = "auto";
-      textarea.style.height = `${Math.min(textarea.scrollHeight, 220)}px`;
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 180)}px`;
     }
   }, [input]);
 
@@ -34,7 +34,9 @@ export function ChatInput({ onSend, isStreaming, onStop, disabled, placeholder }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    // On mobile (no physical keyboard), Enter should just add a newline
+    // On desktop, Enter submits; Shift+Enter adds newline
+    if (e.key === "Enter" && !e.shiftKey && window.innerWidth >= 640) {
       e.preventDefault();
       handleSubmit();
     }
@@ -44,12 +46,12 @@ export function ChatInput({ onSend, isStreaming, onStop, disabled, placeholder }
   const canSend = hasInput && !disabled && !isStreaming;
 
   return (
-    <div className="border-t border-border/50 bg-background/90 backdrop-blur-xl p-4 shrink-0">
+    <div className="border-t border-border/50 bg-background/90 backdrop-blur-xl p-3 sm:p-4 shrink-0 safe-area-bottom">
       <div className="max-w-3xl mx-auto">
         {/* Input container */}
         <div
           className={cn(
-            "relative flex items-end gap-2 rounded-2xl border bg-card/60 p-3 transition-all duration-200",
+            "relative flex items-end gap-2 rounded-2xl border bg-card/60 p-2.5 sm:p-3 transition-all duration-200",
             disabled
               ? "border-border/30 opacity-50"
               : isStreaming
@@ -71,7 +73,7 @@ export function ChatInput({ onSend, isStreaming, onStop, disabled, placeholder }
             }
             disabled={disabled || isStreaming}
             rows={1}
-            className="flex-1 min-h-[40px] max-h-[220px] resize-none border-0 bg-transparent px-1 py-1.5 text-sm focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/40 leading-relaxed"
+            className="flex-1 min-h-[40px] max-h-[180px] resize-none border-0 bg-transparent px-1 py-1.5 text-sm focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/40 leading-relaxed"
           />
 
           {/* Action button */}
@@ -79,7 +81,7 @@ export function ChatInput({ onSend, isStreaming, onStop, disabled, placeholder }
             {isStreaming ? (
               <button
                 onClick={onStop}
-                className="flex items-center justify-center w-9 h-9 rounded-xl bg-destructive/90 hover:bg-destructive text-white transition-all duration-200 shadow-sm"
+                className="flex items-center justify-center w-9 h-9 rounded-xl bg-destructive/90 hover:bg-destructive text-white transition-all duration-200 shadow-sm active:scale-95"
               >
                 <Square className="h-3.5 w-3.5" fill="white" />
               </button>
@@ -88,7 +90,7 @@ export function ChatInput({ onSend, isStreaming, onStop, disabled, placeholder }
                 onClick={handleSubmit}
                 disabled={!canSend}
                 className={cn(
-                  "flex items-center justify-center w-9 h-9 rounded-xl transition-all duration-200",
+                  "flex items-center justify-center w-9 h-9 rounded-xl transition-all duration-200 active:scale-95",
                   canSend
                     ? "bg-primary hover:bg-primary/90 text-white shadow-glow-orange shine-btn"
                     : "bg-muted text-muted-foreground/40 cursor-not-allowed"
@@ -100,13 +102,13 @@ export function ChatInput({ onSend, isStreaming, onStop, disabled, placeholder }
           </div>
         </div>
 
-        {/* Footer hint */}
-        <div className="flex items-center justify-center gap-2 mt-2">
+        {/* Footer hint — hidden on very small screens */}
+        <div className="hidden sm:flex items-center justify-center gap-2 mt-2">
           <Zap className="h-3 w-3 text-primary/40" />
           <p className="text-[11px] text-muted-foreground/40 text-center">
             {isStreaming
               ? "RECOIL AI is thinking…"
-              : "Luau · Roblox APIs · Client-Server · DataStores · and more"}
+              : "Luau · Roblox APIs · Client-Server · DataStores"}
           </p>
           {!isStreaming && (
             <span className="text-[10px] text-muted-foreground/30 hidden sm:inline">

@@ -28,7 +28,7 @@ function CodeBlock({ language, value }: { language: string; value: string }) {
   return (
     <div className="relative group my-3 rounded-xl overflow-hidden border border-border/60 shadow-card-dark">
       {/* Tab bar */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-card border-b border-border/50">
+      <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-2.5 bg-card border-b border-border/50">
         <div className="flex items-center gap-2">
           <div className="flex gap-1.5">
             <div className="w-2.5 h-2.5 rounded-full bg-red-500/50" />
@@ -41,7 +41,7 @@ function CodeBlock({ language, value }: { language: string; value: string }) {
         </div>
         <button
           onClick={handleCopy}
-          className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-all duration-200 opacity-0 group-hover:opacity-100"
+          className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-all duration-200 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
         >
           {copied ? (
             <>
@@ -57,28 +57,31 @@ function CodeBlock({ language, value }: { language: string; value: string }) {
         </button>
       </div>
 
-      {/* Code */}
-      <SyntaxHighlighter
-        language={language || "lua"}
-        style={vscDarkPlus}
-        customStyle={{
-          margin: 0,
-          padding: "16px 20px",
-          fontSize: "12.5px",
-          lineHeight: "1.6",
-          background: "hsl(228 55% 5%)",
-          borderRadius: 0,
-        }}
-        showLineNumbers
-        lineNumberStyle={{
-          fontSize: "11px",
-          color: "hsl(228 30% 30%)",
-          minWidth: "2.5em",
-          paddingRight: "1em",
-        }}
-      >
-        {value}
-      </SyntaxHighlighter>
+      {/* Code — horizontally scrollable on mobile */}
+      <div className="overflow-x-auto">
+        <SyntaxHighlighter
+          language={language || "lua"}
+          style={vscDarkPlus}
+          customStyle={{
+            margin: 0,
+            padding: "14px 16px",
+            fontSize: "12px",
+            lineHeight: "1.6",
+            background: "hsl(228 55% 5%)",
+            borderRadius: 0,
+            minWidth: "100%",
+          }}
+          showLineNumbers
+          lineNumberStyle={{
+            fontSize: "11px",
+            color: "hsl(228 30% 30%)",
+            minWidth: "2.5em",
+            paddingRight: "1em",
+          }}
+        >
+          {value}
+        </SyntaxHighlighter>
+      </div>
 
       {/* Bottom accent line */}
       <div className="h-px bg-gradient-to-r from-primary/0 via-primary/30 to-primary/0" />
@@ -99,24 +102,24 @@ function MessageBubble({
   return (
     <div
       className={cn(
-        "py-5 px-4 md:px-8 lg:px-12 transition-colors",
+        "py-4 sm:py-5 px-3 sm:px-6 md:px-8 lg:px-12 transition-colors",
         isUser
           ? "bg-transparent"
           : "bg-card/20 border-y border-border/30"
       )}
     >
-      <div className="max-w-3xl mx-auto flex gap-4">
-        {/* Avatar */}
+      <div className="max-w-3xl mx-auto flex gap-2.5 sm:gap-4">
+        {/* Avatar — smaller on mobile */}
         <div className="shrink-0 mt-0.5">
           {isUser ? (
-            <div className="w-8 h-8 rounded-full bg-secondary border border-border flex items-center justify-center">
-              <User className="h-4 w-4 text-muted-foreground" />
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-secondary border border-border flex items-center justify-center">
+              <User className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
             </div>
           ) : (
-            <div className="relative w-8 h-8">
+            <div className="relative w-7 h-7 sm:w-8 sm:h-8">
               <div className="absolute inset-0 rounded-full bg-primary/20 blur-sm" />
-              <div className="relative w-8 h-8 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center">
-                <Zap className="h-4 w-4 text-primary" strokeWidth={2} />
+              <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center">
+                <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" strokeWidth={2} />
               </div>
             </div>
           )}
@@ -124,7 +127,7 @@ function MessageBubble({
 
         {/* Content */}
         <div className="flex-1 min-w-0 pt-0.5">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
             <span className="text-[11px] font-display font-semibold uppercase tracking-wider text-muted-foreground/70">
               {isUser ? "You" : "RECOIL AI"}
             </span>
